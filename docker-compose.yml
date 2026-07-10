@@ -1,0 +1,101 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.13.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--storage.tsdb.retention.size=2GB"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
+      - ./data/prometheus:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    logging: *default-logging
+    networks:
+      - grafana_default
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.28.0
+    container_name: blackbox-exporter
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/blackbox_exporter/blackbox.yml"
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+    ports:
+      - "127.0.0.1:9115:9115"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9115/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    logging: *default-logging
+    networks:
+      - grafana_default
+
+  blackbox-pg-writer:
+    build:
+      context: .
+      dockerfile: Dockerfile.writer
+    image: blackbox-pg-writer:latest
+    container_name: blackbox-pg-writer
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    env_file:
+      - path: ${WRITER_ENV_FILE:-.env}
+        format: raw
+    environment:
+      PROMETHEUS_URL: http://prometheus:9090
+      WRITE_INTERVAL_SECONDS: ${WRITE_INTERVAL_SECONDS:-10}
+      BLACKBOX_RAW_RETENTION_DAYS: ${BLACKBOX_RAW_RETENTION_DAYS:-30}
+      BLACKBOX_KPI_RETENTION_DAYS: ${BLACKBOX_KPI_RETENTION_DAYS:-400}
+      BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS: ${BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS:-86400}
+      BLACKBOX_RUN_MIGRATIONS: ${BLACKBOX_RUN_MIGRATIONS:-false}
+      PROMETHEUS_QUERY_OVERLAP_SECONDS: ${PROMETHEUS_QUERY_OVERLAP_SECONDS:-60}
+      PROMETHEUS_BACKFILL_CHUNK_SECONDS: ${PROMETHEUS_BACKFILL_CHUNK_SECONDS:-3600}
+      PROMETHEUS_INITIAL_BACKFILL_SECONDS: ${PROMETHEUS_INITIAL_BACKFILL_SECONDS:-3600}
+      PROMETHEUS_MAX_BACKFILL_SECONDS: ${PROMETHEUS_MAX_BACKFILL_SECONDS:-1296000}
+      PROMETHEUS_MAX_BACKFILL_CHUNKS_PER_CYCLE: ${PROMETHEUS_MAX_BACKFILL_CHUNKS_PER_CYCLE:-6}
+      WRITER_METRICS_PORT: ${WRITER_METRICS_PORT:-8080}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:$${WRITER_METRICS_PORT:-8080}/metrics >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    logging: *default-logging
+    networks:
+      - grafana_default
+
+networks:
+  grafana_default:
+    external: true

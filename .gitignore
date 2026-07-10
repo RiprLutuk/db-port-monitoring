@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+*.log
+*.pem
+*.key
+
+# Runtime storage and internal documentation are local-only.
+/data/
+/doc/
+/docs/
+
+# Target inventory can contain production hostnames and IP addresses.
+/prometheus/targets/*.yml
+!/prometheus/targets/db-targets.example.yml

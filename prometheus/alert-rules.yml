@@ -1,0 +1,90 @@
+groups:
+  - name: db-port-availability
+    rules:
+      - alert: DBPortDown
+        expr: probe_success{job="db-port-availability"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: database
+          team: dba
+        annotations:
+          summary: "DB port down: {{ $labels.db_name }}"
+          description: "Target {{ $labels.instance }} tidak reachable via TCP selama lebih dari 3 menit. DB Type={{ $labels.db_type }}, Env={{ $labels.env }}."
+
+      - alert: DBPortProbeSlow
+        expr: probe_duration_seconds{job="db-port-availability"} > 3 and probe_success{job="db-port-availability"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          team: dba
+        annotations:
+          summary: "DB port probe slow: {{ $labels.db_name }}"
+          description: "Target {{ $labels.instance }} TCP probe latency lebih dari 3 detik selama 5 menit. DB Type={{ $labels.db_type }}, Env={{ $labels.env }}."
+
+      - alert: DBPortProbeScrapeFailed
+        expr: up{job="db-port-availability"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: monitoring
+          team: dba
+        annotations:
+          summary: "DB port probe scrape failed: {{ $labels.db_name }}"
+          description: "Prometheus gagal mengambil hasil Blackbox untuk {{ $labels.instance }} selama lebih dari 1 menit."
+
+      - alert: DBPortMetricsMissing
+        expr: absent_over_time(probe_success{job="db-port-availability"}[2m])
+        for: 1m
+        labels:
+          severity: critical
+          category: monitoring
+          team: dba
+        annotations:
+          summary: "All DB port probe metrics are missing"
+          description: "Seluruh metric probe_success tidak tersedia selama lebih dari 2 menit."
+
+      - alert: BlackboxPGWriterDown
+        expr: up{job="blackbox-pg-writer"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: ingest
+          team: dba
+        annotations:
+          summary: "Blackbox PostgreSQL writer is down"
+          description: "Prometheus tidak dapat mengambil health metric blackbox-pg-writer selama lebih dari 1 menit."
+
+      - alert: BlackboxPGWriterCycleFailed
+        expr: blackbox_pg_writer_cycle_success == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: ingest
+          team: dba
+        annotations:
+          summary: "Blackbox PostgreSQL ingest is failing"
+          description: "Siklus ingest PostgreSQL terus gagal selama lebih dari 1 menit."
+
+      - alert: BlackboxPGWriterIngestStale
+        expr: (time() - blackbox_pg_writer_last_success_timestamp_seconds > 60) and (blackbox_pg_writer_last_success_timestamp_seconds > 0)
+        for: 1m
+        labels:
+          severity: critical
+          category: ingest
+          team: dba
+        annotations:
+          summary: "Blackbox PostgreSQL ingest is stale"
+          description: "Writer tidak menyelesaikan ingest sukses selama lebih dari 60 detik."
+
+      - alert: BlackboxPGWriterBackfillBehind
+        expr: blackbox_pg_writer_backfill_remaining_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+          category: ingest
+          team: dba
+        annotations:
+          summary: "Blackbox PostgreSQL writer has a backfill backlog"
+          description: "Backlog ingest PostgreSQL masih lebih dari 5 menit selama sedikitnya 5 menit."

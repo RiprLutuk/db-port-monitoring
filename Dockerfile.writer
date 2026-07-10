@@ -1,0 +1,26 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache \
+    bash \
+    busybox-extras \
+    ca-certificates \
+    coreutils \
+    gawk \
+    jq \
+    postgresql-client \
+    tzdata \
+    wget \
+  && addgroup -S writer \
+  && adduser -S -G writer writer
+
+WORKDIR /workspace
+
+COPY scripts/ /workspace/scripts/
+COPY sql/ /workspace/sql/
+
+RUN chmod +x /workspace/scripts/*.sh \
+  && chown -R writer:writer /workspace
+
+USER writer
+
+ENTRYPOINT ["/workspace/scripts/blackbox-pg-writer.sh"]

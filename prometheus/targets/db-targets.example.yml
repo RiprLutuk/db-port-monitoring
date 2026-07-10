@@ -1,0 +1,17 @@
+- targets:
+    - "db-postgres.example.com:5432"
+  labels:
+    db_name: "example-postgres"
+    db_type: "postgresql"
+    env: "development"
+    team: "platform"
+    criticality: "medium"
+
+- targets:
+    - "db-mysql.example.com:3306"
+  labels:
+    db_name: "example-mysql"
+    db_type: "mysql"
+    env: "development"
+    team: "platform"
+    criticality: "low"

@@ -1,0 +1,1962 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Active Targets",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*)::bigint AS active_targets\nFROM monitoring.db_port_blackbox_targets t\nWHERE t.is_active = true AND ('$environment' = '%' OR t.environment = '$environment') AND ('$db_type' = '%' OR t.db_type = '$db_type') AND ('$target' = '%' OR t.target_name = '$target');",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "UP Now",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '%' OR t.environment = '$environment') AND ('$db_type' = '%' OR t.db_type = '$db_type') AND ('$target' = '%' OR t.target_name = '$target')\n)\n\nSELECT count(*) FILTER (WHERE is_up = 1)::bigint AS up_now\nFROM latest;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "DOWN Now",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '%' OR t.environment = '$environment') AND ('$db_type' = '%' OR t.db_type = '$db_type') AND ('$target' = '%' OR t.target_name = '$target')\n)\n\nSELECT count(*) FILTER (WHERE coalesce(is_up, 0) = 0)::bigint AS down_now\nFROM latest;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Availability",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(round(avg(r.is_up)::numeric * 100, 2), 0) AS availability_pct\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE $__timeFilter(r.checked_at) AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target');",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Avg Latency",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '%' OR t.environment = '$environment') AND ('$db_type' = '%' OR t.db_type = '$db_type') AND ('$target' = '%' OR t.target_name = '$target')\n)\nSELECT round((avg(latency_ms) / 1000.0)::numeric, 2)::double precision AS avg_latency_seconds\nFROM latest\nWHERE is_up = 1;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Slow Probes",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '%' OR t.environment = '$environment') AND ('$db_type' = '%' OR t.db_type = '$db_type') AND ('$target' = '%' OR t.target_name = '$target')\n)\n\nSELECT count(*) FILTER (WHERE is_up = 1 AND latency_ms > 3000)::bigint AS slow_probes\nFROM latest;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "DOWN Now by Environment",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '%' OR t.environment = '$environment') AND ('$db_type' = '%' OR t.db_type = '$db_type') AND ('$target' = '%' OR t.target_name = '$target')\n)\nSELECT\n  now() AS \"time\",\n  environment AS metric,\n  count(*) FILTER (WHERE coalesce(is_up, 0) = 0)::double precision AS value\nFROM latest\nGROUP BY environment\nORDER BY value DESC, metric;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "DOWN Now by DB Type",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 4,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '%' OR t.environment = '$environment') AND ('$db_type' = '%' OR t.db_type = '$db_type') AND ('$target' = '%' OR t.target_name = '$target')\n)\nSELECT\n  now() AS \"time\",\n  db_type AS metric,\n  count(*) FILTER (WHERE coalesce(is_up, 0) = 0)::double precision AS value\nFROM latest\nGROUP BY db_type\nORDER BY value DESC, metric;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "Availability 24h by Env / DB Type",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS \"time\",\n  r.environment || ' / ' || r.db_type AS metric,\n  round(avg(r.is_up)::numeric * 100, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE r.checked_at >= now() - interval '24 hours' AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\nGROUP BY r.environment, r.db_type\nORDER BY value ASC, metric;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          },
+          "decimals": 2,
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "DOWN Targets Trend",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  to_timestamp(floor(extract(epoch FROM r.checked_at) / 10) * 10) AS \"time\",\n  'down targets' AS metric,\n  count(DISTINCT r.target_name) FILTER (WHERE r.is_up = 0)::double precision AS value\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE $__timeFilter(r.checked_at) AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\nGROUP BY 1\nORDER BY 1;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Latency by Env / DB Type",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  to_timestamp(floor(extract(epoch FROM r.checked_at) / 10) * 10) AS \"time\",\n  r.environment || ' / ' || r.db_type AS metric,\n  (avg(r.latency_ms) / 1000.0)::double precision AS value\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE $__timeFilter(r.checked_at) AND r.is_up = 1 AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Current Target Status",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '%' OR t.environment = '$environment') AND ('$db_type' = '%' OR t.db_type = '$db_type') AND ('$target' = '%' OR t.target_name = '$target')\n)\n\nSELECT\n  target_name,\n  environment,\n  db_type,\n  instance,\n  CASE WHEN is_up = 1 THEN 'UP' ELSE 'DOWN' END AS status,\n  round(latency_ms::numeric, 2) AS latency_ms,\n  checked_at,\n  coalesce(extract(epoch FROM now() - checked_at)::bigint, 999999999) AS age_seconds\nFROM latest\nORDER BY status, age_seconds DESC, target_name;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Worst Availability in Selected Range (Hourly KPI)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 19,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  h.target_name,\n  max(h.environment) AS environment,\n  max(h.db_type) AS db_type,\n  sum(h.probes)::bigint AS probes,\n  sum(h.up_probes)::bigint AS up_probes,\n  sum(h.down_probes)::bigint AS down_probes,\n  round(sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100, 2) AS availability_pct,\n  round((sum(h.latency_ms_sum) / nullif(sum(h.latency_ms_count), 0) / 1000.0)::numeric, 2) AS avg_latency_seconds\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target')\nGROUP BY h.target_name\nORDER BY availability_pct ASC, down_probes DESC, h.target_name\nLIMIT 200;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "YTD Availability",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2), 0) AS ytd_availability_pct\nFROM monitoring.db_port_blackbox_daily_kpi\nWHERE period_start >= date_trunc('year', current_date)::date AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target');",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Monthly Availability KPI",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 29,
+        "w": 9,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  date_trunc('month', period_start::timestamptz) AS \"time\",\n  environment || ' / ' || db_type AS metric,\n  round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_daily_kpi\nWHERE period_start >= current_date - interval '400 days' AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target')\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "timeFrom": "400d",
+      "hideTimeOverride": false
+    },
+    {
+      "id": 16,
+      "type": "table",
+      "title": "Worst YTD Availability",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 29,
+        "w": 9,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  target_name,\n  max(environment) AS environment,\n  max(db_type) AS db_type,\n  sum(probes)::bigint AS probes,\n  sum(down_probes)::bigint AS down_probes,\n  round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2) AS availability_pct,\n  round((sum(latency_ms_sum) / nullif(sum(latency_ms_count), 0) / 1000.0)::numeric, 2)::double precision AS avg_latency_seconds,\n  max(last_probe_at) AS last_probe_at\nFROM monitoring.db_port_blackbox_daily_kpi\nWHERE period_start >= date_trunc('year', current_date)::date AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target')\nGROUP BY target_name\nORDER BY availability_pct ASC, down_probes DESC, target_name\nLIMIT 200;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "id": 17,
+      "type": "bargauge",
+      "title": "DOWN Samples 24h by Env / DB Type",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS \"time\",\n  r.environment || ' / ' || r.db_type AS metric,\n  count(*) FILTER (WHERE r.is_up = 0)::double precision AS value\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE r.checked_at >= now() - interval '24 hours' AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\nGROUP BY r.environment, r.db_type\nORDER BY value DESC, metric;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 18,
+      "type": "bargauge",
+      "title": "Approx Down Minutes 24h by Env / DB Type",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT now() - interval '24 hours' AS from_at, now() AS to_at\n)\nSELECT\n  now() AS \"time\",\n  e.environment || ' / ' || e.db_type AS metric,\n  round(sum(extract(epoch FROM least(coalesce(e.down_end, now()), b.to_at) - greatest(e.down_start, b.from_at)))::numeric / 60.0, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_downtime_events e\nCROSS JOIN bounds b\nWHERE e.down_start < b.to_at AND coalesce(e.down_end, now()) > b.from_at AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target')\nGROUP BY e.environment, e.db_type\nORDER BY value DESC, metric;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 2,
+          "min": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 19,
+      "type": "table",
+      "title": "Downtime Events in Selected Range",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::timestamptz AS from_at, $__timeTo()::timestamptz AS to_at\n)\nSELECT\n  e.down_start,\n  e.down_end,\n  CASE WHEN e.down_end IS NULL THEN 'OPEN' ELSE 'CLOSED' END AS event_status,\n  e.target_name,\n  e.environment,\n  e.db_type,\n  e.instance,\n  round(extract(epoch FROM least(coalesce(e.down_end, now()), b.to_at) - greatest(e.down_start, b.from_at))::numeric / 60.0, 2) AS duration_in_range_minutes,\n  e.down_samples,\n  e.first_error_text,\n  e.last_error_text\nFROM monitoring.db_port_blackbox_downtime_events e\nCROSS JOIN bounds b\nWHERE e.down_start < b.to_at AND coalesce(e.down_end, now()) > b.from_at AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target')\nORDER BY e.down_start DESC\nLIMIT 300;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Hourly Availability KPI by Env / DB Type",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 54,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  h.period_hour AS \"time\",\n  h.environment || ' / ' || h.db_type AS metric,\n  round(sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target')\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "table",
+      "title": "Status Changes in Selected Range",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 62,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  s.event_at,\n  s.target_name,\n  s.environment,\n  s.db_type,\n  s.instance,\n  CASE WHEN s.previous_is_up = 1 THEN 'UP' WHEN s.previous_is_up = 0 THEN 'DOWN' ELSE 'UNKNOWN' END AS previous_status,\n  CASE WHEN s.current_is_up = 1 THEN 'UP' ELSE 'DOWN' END AS current_status,\n  round(s.latency_ms::numeric, 2) AS latency_ms,\n  s.error_text\nFROM monitoring.db_port_blackbox_status_events s\nWHERE $__timeFilter(s.event_at) AND ('$environment' = '%' OR s.environment = '$environment') AND ('$db_type' = '%' OR s.db_type = '$db_type') AND ('$target' = '%' OR s.target_name = '$target')\nORDER BY s.event_at DESC\nLIMIT 300;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "id": 22,
+      "type": "table",
+      "title": "Slow Latency Events in Selected Range",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 62,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::timestamptz AS from_at, $__timeTo()::timestamptz AS to_at\n)\nSELECT\n  e.slow_start,\n  e.slow_end,\n  CASE WHEN e.slow_end IS NULL THEN 'OPEN' ELSE 'CLOSED' END AS event_status,\n  e.target_name,\n  e.environment,\n  e.db_type,\n  e.instance,\n  e.threshold_ms,\n  round(extract(epoch FROM least(coalesce(e.slow_end, now()), b.to_at) - greatest(e.slow_start, b.from_at))::numeric / 60.0, 2) AS duration_in_range_minutes,\n  e.slow_samples,\n  round(e.latency_ms_sum / nullif(e.latency_ms_count, 0), 2) AS avg_latency_ms,\n  round(e.max_latency_ms, 2) AS max_latency_ms\nFROM monitoring.db_port_blackbox_latency_events e\nCROSS JOIN bounds b\nWHERE e.slow_start < b.to_at AND coalesce(e.slow_end, now()) > b.from_at AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target')\nORDER BY e.slow_start DESC\nLIMIT 300;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "tags": [
+    "database",
+    "blackbox",
+    "postgresql",
+    "availability",
+    "kpi"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "%"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT DISTINCT environment AS __text, environment AS __value FROM monitoring.db_port_blackbox_targets WHERE is_active = true ORDER BY 1;",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "%",
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": "SELECT DISTINCT environment AS __text, environment AS __value FROM monitoring.db_port_blackbox_targets WHERE is_active = true ORDER BY 1;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "%"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT DISTINCT db_type AS __text, db_type AS __value FROM monitoring.db_port_blackbox_targets WHERE is_active = true AND ('$environment' = '%' OR environment = '$environment') ORDER BY 1;",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "%",
+        "label": "DB Type",
+        "multi": false,
+        "name": "db_type",
+        "options": [],
+        "query": "SELECT DISTINCT db_type AS __text, db_type AS __value FROM monitoring.db_port_blackbox_targets WHERE is_active = true AND ('$environment' = '%' OR environment = '$environment') ORDER BY 1;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "%"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT target_name AS __text, target_name AS __value FROM monitoring.db_port_blackbox_targets WHERE is_active = true AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') ORDER BY 1;",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "%",
+        "label": "DB Name",
+        "multi": false,
+        "name": "target",
+        "options": [],
+        "query": "SELECT target_name AS __text, target_name AS __value FROM monitoring.db_port_blackbox_targets WHERE is_active = true AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') ORDER BY 1;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "DB Port Availability Overview - SQL",
+  "uid": "db-port-availability-overview-sql",
+  "version": 3,
+  "weekStart": ""
+}
