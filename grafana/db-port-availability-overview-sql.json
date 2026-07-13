@@ -283,7 +283,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT coalesce(round(avg(r.is_up)::numeric * 100, 2), 0) AS availability_pct\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE $__timeFilter(r.checked_at) AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target');",
+          "rawSql": "WITH minute_samples AS (\n  SELECT\n    date_trunc('minute', r.checked_at) AS period_minute,\n    r.target_name,\n    min(r.is_up) AS is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE $__timeFilter(r.checked_at) AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\n  GROUP BY 1, 2\n), target_availability AS (\n  SELECT target_name, avg(is_up) AS availability\n  FROM minute_samples\n  GROUP BY target_name\n)\nSELECT coalesce(round(avg(availability)::numeric * 100, 2), 0) AS availability_pct\nFROM target_availability;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -719,7 +719,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS \"time\",\n  r.environment || ' / ' || r.db_type AS metric,\n  round(avg(r.is_up)::numeric * 100, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE r.checked_at >= now() - interval '24 hours' AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\nGROUP BY r.environment, r.db_type\nORDER BY value ASC, metric;",
+          "rawSql": "WITH minute_samples AS (\n  SELECT\n    date_trunc('minute', r.checked_at) AS period_minute,\n    r.target_name,\n    max(r.environment) AS environment,\n    max(r.db_type) AS db_type,\n    min(r.is_up) AS is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.checked_at >= now() - interval '24 hours' AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\n  GROUP BY 1, 2\n), target_availability AS (\n  SELECT target_name, environment, db_type, avg(is_up) AS availability\n  FROM minute_samples\n  GROUP BY target_name, environment, db_type\n)\nSELECT\n  now() AS \"time\",\n  environment || ' / ' || db_type AS metric,\n  round(avg(availability)::numeric * 100, 2)::double precision AS value\nFROM target_availability\nGROUP BY environment, db_type\nORDER BY value ASC, metric;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -811,7 +811,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  to_timestamp(floor(extract(epoch FROM r.checked_at) / 10) * 10) AS \"time\",\n  'down targets' AS metric,\n  count(DISTINCT r.target_name) FILTER (WHERE r.is_up = 0)::double precision AS value\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE $__timeFilter(r.checked_at) AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\nGROUP BY 1\nORDER BY 1;",
+          "rawSql": "WITH minute_samples AS (\n  SELECT\n    date_trunc('minute', r.checked_at) AS period_minute,\n    r.target_name,\n    min(r.is_up) AS is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE $__timeFilter(r.checked_at) AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\n  GROUP BY 1, 2\n)\nSELECT\n  period_minute AS \"time\",\n  'down targets' AS metric,\n  count(*) FILTER (WHERE is_up = 0)::double precision AS value\nFROM minute_samples\nGROUP BY period_minute\nORDER BY period_minute;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -885,7 +885,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  to_timestamp(floor(extract(epoch FROM r.checked_at) / 10) * 10) AS \"time\",\n  r.environment || ' / ' || r.db_type AS metric,\n  (avg(r.latency_ms) / 1000.0)::double precision AS value\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE $__timeFilter(r.checked_at) AND r.is_up = 1 AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "rawSql": "WITH minute_samples AS (\n  SELECT\n    date_trunc('minute', r.checked_at) AS period_minute,\n    r.target_name,\n    max(r.environment) AS environment,\n    max(r.db_type) AS db_type,\n    CASE\n      WHEN min(r.is_up) = 1 THEN avg(r.latency_ms) FILTER (WHERE r.is_up = 1)\n      ELSE NULL\n    END AS latency_ms\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE $__timeFilter(r.checked_at) AND ('$environment' = '%' OR r.environment = '$environment') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND ('$target' = '%' OR r.target_name = '$target')\n  GROUP BY 1, 2\n)\nSELECT\n  period_minute AS \"time\",\n  environment || ' / ' || db_type AS metric,\n  (avg(latency_ms) / 1000.0)::double precision AS value\nFROM minute_samples\nWHERE latency_ms IS NOT NULL\nGROUP BY period_minute, environment, db_type\nORDER BY period_minute, metric;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1945,7 +1945,6 @@
   },
   "timepicker": {
     "refresh_intervals": [
-      "10s",
       "30s",
       "1m",
       "5m",
@@ -1957,6 +1956,6 @@
   "timezone": "browser",
   "title": "DB Port Availability Overview - SQL",
   "uid": "db-port-availability-overview-sql",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }

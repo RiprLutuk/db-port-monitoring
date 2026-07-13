@@ -289,7 +289,7 @@ WITH active_targets AS (
 recent AS (
     SELECT count(DISTINCT target_name)::bigint AS recent_target_count
     FROM :"schema_name".db_port_blackbox_probe_results
-    WHERE checked_at >= now() - interval '30 seconds'
+    WHERE checked_at >= now() - interval '3 minutes'
 ),
 latest AS (
     SELECT max(checked_at) AS latest_checked_at
@@ -319,7 +319,46 @@ LEFT JOIN :"schema_name".db_port_blackbox_probe_results r ON r.target_name = t.t
 WHERE t.is_active = true
 GROUP BY t.target_name, t.db_type, t.environment, t.instance, t.criticality
 HAVING max(r.checked_at) IS NULL
-    OR max(r.checked_at) < now() - interval '30 seconds';
+    OR max(r.checked_at) < now() - interval '3 minutes';
+
+CREATE TEMP TABLE blackbox_normalized_minute_samples ON COMMIT DROP AS
+SELECT
+    date_trunc('minute', checked_at) AS period_minute,
+    target_name,
+    max(db_type) AS db_type,
+    max(environment) AS environment,
+    max(host) AS host,
+    max(port) AS port,
+    max(instance) AS instance,
+    max(criticality) AS criticality,
+    max(team) AS team,
+    min(is_up) AS is_up,
+    CASE
+        WHEN min(is_up) = 1
+        THEN avg(latency_ms) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL)
+        ELSE NULL
+    END AS latency_ms,
+    CASE
+        WHEN min(is_up) = 1
+        THEN max(latency_ms) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL)
+        ELSE NULL
+    END AS max_latency_ms,
+    CASE
+        WHEN min(is_up) = 1
+        THEN bool_or(latency_ms > 3000) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL)
+        ELSE false
+    END AS is_slow,
+    coalesce(
+        (array_remove(array_agg(error_text ORDER BY checked_at)
+            FILTER (WHERE is_up = 0), NULL))[1],
+        'blackbox probe failed'
+    ) AS error_text,
+    min(checked_at) AS first_probe_at,
+    max(checked_at) AS last_probe_at,
+    min(checked_at) FILTER (WHERE is_up = 0) AS first_down_at,
+    max(checked_at) FILTER (WHERE is_up = 0) AS last_down_at
+FROM :"schema_name".db_port_blackbox_probe_results
+GROUP BY date_trunc('minute', checked_at), target_name;
 
 INSERT INTO :"schema_name".db_port_blackbox_daily_kpi (
     period_start,
@@ -340,7 +379,7 @@ INSERT INTO :"schema_name".db_port_blackbox_daily_kpi (
     last_probe_at
 )
 SELECT
-    checked_at::date,
+    period_minute::date,
     target_name,
     max(db_type),
     max(environment),
@@ -354,10 +393,10 @@ SELECT
     sum(CASE WHEN is_up = 0 THEN 1 ELSE 0 END)::bigint,
     coalesce(sum(latency_ms) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL), 0),
     count(latency_ms) FILTER (WHERE is_up = 1)::bigint,
-    min(checked_at),
-    max(checked_at)
-FROM :"schema_name".db_port_blackbox_probe_results
-GROUP BY checked_at::date, target_name
+    min(first_probe_at),
+    max(last_probe_at)
+FROM blackbox_normalized_minute_samples
+GROUP BY period_minute::date, target_name
 ON CONFLICT (period_start, target_name) DO UPDATE SET
     db_type = EXCLUDED.db_type,
     environment = EXCLUDED.environment,
@@ -396,7 +435,7 @@ INSERT INTO :"schema_name".db_port_blackbox_hourly_kpi (
     last_probe_at
 )
 SELECT
-    date_trunc('hour', checked_at),
+    date_trunc('hour', period_minute),
     target_name,
     max(db_type),
     max(environment),
@@ -408,14 +447,14 @@ SELECT
     count(*)::bigint,
     sum(CASE WHEN is_up = 1 THEN 1 ELSE 0 END)::bigint,
     sum(CASE WHEN is_up = 0 THEN 1 ELSE 0 END)::bigint,
-    count(*) FILTER (WHERE is_up = 1 AND latency_ms > 3000)::bigint,
+    count(*) FILTER (WHERE is_slow)::bigint,
     coalesce(sum(latency_ms) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL), 0),
     count(latency_ms) FILTER (WHERE is_up = 1)::bigint,
-    max(latency_ms) FILTER (WHERE is_up = 1),
-    min(checked_at),
-    max(checked_at)
-FROM :"schema_name".db_port_blackbox_probe_results
-GROUP BY date_trunc('hour', checked_at), target_name
+    max(max_latency_ms) FILTER (WHERE is_up = 1),
+    min(first_probe_at),
+    max(last_probe_at)
+FROM blackbox_normalized_minute_samples
+GROUP BY date_trunc('hour', period_minute), target_name
 ON CONFLICT (period_hour, target_name) DO UPDATE SET
     db_type = EXCLUDED.db_type,
     environment = EXCLUDED.environment,
@@ -700,7 +739,7 @@ INSERT INTO :"schema_name".db_port_blackbox_daily_error_summary (
     last_seen_at
 )
 SELECT
-    checked_at::date,
+    period_minute::date,
     target_name,
     max(db_type),
     max(environment),
@@ -711,11 +750,11 @@ SELECT
     max(team),
     coalesce(error_text, 'blackbox probe failed') AS error_text,
     count(*)::bigint,
-    min(checked_at),
-    max(checked_at)
-FROM :"schema_name".db_port_blackbox_probe_results
+    min(first_down_at),
+    max(last_down_at)
+FROM blackbox_normalized_minute_samples
 WHERE is_up = 0
-GROUP BY checked_at::date, target_name, coalesce(error_text, 'blackbox probe failed')
+GROUP BY period_minute::date, target_name, coalesce(error_text, 'blackbox probe failed')
 ON CONFLICT (period_start, target_name, error_text) DO UPDATE SET
     db_type = EXCLUDED.db_type,
     environment = EXCLUDED.environment,

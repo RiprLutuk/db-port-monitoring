@@ -7,6 +7,7 @@ WRITER_ENV_FILE="${WRITER_ENV_FILE:-.env}"
 PROMETHEUS_URL="${PROMETHEUS_URL:-http://127.0.0.1:9090}"
 BLACKBOX_URL="${BLACKBOX_URL:-http://127.0.0.1:9115}"
 DEFAULT_TARGET="${TARGET:-db-postgres.example.com:5432}"
+PROMETHEUS_IMAGE="${PROMETHEUS_IMAGE:-prom/prometheus:v3.13.0}"
 
 cd "$BASE_DIR"
 
@@ -32,6 +33,7 @@ Commands:
   probe [host:port]         Run one Blackbox TCP probe
   query                     Query probe_success from Prometheus
   pg-schema                 Run PostgreSQL schema migration
+  normalize-kpi-1m          Backup and normalize reconstructable KPI history to one-minute weight
   writer-start              Recreate/start writer only
   writer-stop               Stop writer only
   writer-restart            Restart writer only
@@ -91,10 +93,10 @@ case "$cmd" in
     compose config --quiet
     docker run --rm --entrypoint promtool \
       -v "${BASE_DIR}/prometheus:/etc/prometheus:ro" \
-      prom/prometheus:latest check config /etc/prometheus/prometheus.yml
+      "$PROMETHEUS_IMAGE" check config /etc/prometheus/prometheus.yml
     docker run --rm --entrypoint promtool \
       -v "${BASE_DIR}/prometheus:/etc/prometheus:ro" \
-      prom/prometheus:latest check rules /etc/prometheus/alert-rules.yml
+      "$PROMETHEUS_IMAGE" check rules /etc/prometheus/alert-rules.yml
     ;;
 
   reload)
@@ -121,6 +123,16 @@ case "$cmd" in
     compose run --rm --no-deps \
       --entrypoint /workspace/scripts/run-psql.sh \
       blackbox-pg-writer -f /workspace/sql/001_blackbox_pg_schema.sql
+    ;;
+
+  normalize-kpi-1m)
+    if compose ps --status running --services | grep -qx 'blackbox-pg-writer'; then
+      echo "Stop blackbox-pg-writer before normalizing KPI." >&2
+      exit 1
+    fi
+    compose run --rm --no-deps \
+      --entrypoint /workspace/scripts/run-psql.sh \
+      blackbox-pg-writer -f /workspace/sql/003_normalize_kpi_to_one_minute.sql
     ;;
 
   writer-start)

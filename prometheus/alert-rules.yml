@@ -25,17 +25,17 @@ groups:
 
       - alert: DBPortProbeScrapeFailed
         expr: up{job="db-port-availability"} == 0
-        for: 1m
+        for: 2m
         labels:
           severity: critical
           category: monitoring
           team: dba
         annotations:
           summary: "DB port probe scrape failed: {{ $labels.db_name }}"
-          description: "Prometheus gagal mengambil hasil Blackbox untuk {{ $labels.instance }} selama lebih dari 1 menit."
+          description: "Prometheus gagal mengambil hasil Blackbox untuk {{ $labels.instance }} selama lebih dari 2 menit."
 
       - alert: DBPortMetricsMissing
-        expr: absent_over_time(probe_success{job="db-port-availability"}[2m])
+        expr: absent_over_time(probe_success{job="db-port-availability"}[3m])
         for: 1m
         labels:
           severity: critical
@@ -43,7 +43,7 @@ groups:
           team: dba
         annotations:
           summary: "All DB port probe metrics are missing"
-          description: "Seluruh metric probe_success tidak tersedia selama lebih dari 2 menit."
+          description: "Seluruh metric probe_success tidak tersedia selama lebih dari 3 menit."
 
       - alert: BlackboxPGWriterDown
         expr: up{job="blackbox-pg-writer"} == 0
@@ -68,7 +68,7 @@ groups:
           description: "Siklus ingest PostgreSQL terus gagal selama lebih dari 1 menit."
 
       - alert: BlackboxPGWriterIngestStale
-        expr: (time() - blackbox_pg_writer_last_success_timestamp_seconds > 60) and (blackbox_pg_writer_last_success_timestamp_seconds > 0)
+        expr: (time() - blackbox_pg_writer_last_success_timestamp_seconds > 180) and (blackbox_pg_writer_last_success_timestamp_seconds > 0)
         for: 1m
         labels:
           severity: critical
@@ -76,7 +76,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL ingest is stale"
-          description: "Writer tidak menyelesaikan ingest sukses selama lebih dari 60 detik."
+          description: "Writer tidak menyelesaikan ingest sukses selama lebih dari 3 menit."
 
       - alert: BlackboxPGWriterBackfillBehind
         expr: blackbox_pg_writer_backfill_remaining_seconds > 300

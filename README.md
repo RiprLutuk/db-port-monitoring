@@ -3,7 +3,7 @@
 Project ini memonitor availability port database dengan TCP probe:
 
 - Blackbox Exporter melakukan connect ke `host:port`.
-- Prometheus scrape hasil probe setiap 10 detik.
+- Prometheus scrape hasil probe setiap 1 menit.
 - Grafana membaca metric dari Prometheus.
 - Tidak ada credential database target yang disimpan atau dipakai.
 
@@ -130,7 +130,7 @@ Dashboard target detail berisi satu target per view, timeline UP/DOWN, latency, 
 
 Dashboard SQL availability membaca data dari PostgreSQL untuk kebutuhan KPI dan reporting jangka panjang. Panel real-time memakai raw probe data 30 hari, sedangkan panel YTD/monthly memakai aggregate harian 400 hari.
 
-Dashboard SQL juga memakai tabel summary-detail jangka panjang untuk tetap bisa menjawab kapan target down tanpa menyimpan raw 10 detik selama ratusan hari:
+Dashboard SQL juga memakai tabel summary-detail jangka panjang untuk tetap bisa menjawab kapan target down tanpa menyimpan raw per menit selama ratusan hari:
 
 - `monitoring.db_port_blackbox_hourly_kpi`
 - `monitoring.db_port_blackbox_status_events`
@@ -164,11 +164,11 @@ Rule:
 
 - `DBPortDown`: `probe_success == 0 for 3m`
 - `DBPortProbeSlow`: successful probe dengan latency lebih dari 3 detik selama 5 menit
-- `DBPortProbeScrapeFailed`: Prometheus gagal scrape target selama 1 menit
+- `DBPortProbeScrapeFailed`: Prometheus gagal scrape target selama 2 menit
 - `DBPortMetricsMissing`: seluruh metric probe hilang
 - `BlackboxPGWriterDown`: endpoint health writer tidak dapat di-scrape
 - `BlackboxPGWriterCycleFailed`: siklus insert PostgreSQL gagal
-- `BlackboxPGWriterIngestStale`: tidak ada ingest sukses selama lebih dari 60 detik
+- `BlackboxPGWriterIngestStale`: tidak ada ingest sukses selama lebih dari 180 detik
 - `BlackboxPGWriterBackfillBehind`: backlog writer lebih dari 5 menit
 
 Rule Prometheus sudah mendeteksi kondisi tersebut. Pengiriman notifikasi ke email, Slack, atau webhook tetap membutuhkan receiver Alertmanager yang sesuai dengan channel operasional perusahaan.
@@ -228,12 +228,12 @@ monitoring.db_port_blackbox_downtime_event_history
 monitoring.db_port_blackbox_latency_event_history
 ```
 
-Writer berjalan setiap 10 detik, menghapus raw row yang lebih tua dari `BLACKBOX_RAW_RETENTION_DAYS`, dan mempertahankan KPI/event summary sesuai `BLACKBOX_KPI_RETENTION_DAYS`.
+Writer berjalan setiap 1 menit, menghapus raw row yang lebih tua dari `BLACKBOX_RAW_RETENTION_DAYS`, dan mempertahankan KPI/event summary sesuai `BLACKBOX_KPI_RETENTION_DAYS`.
 
 Pengaturan recovery writer:
 
 ```text
-PROMETHEUS_QUERY_OVERLAP_SECONDS=60
+PROMETHEUS_QUERY_OVERLAP_SECONDS=180
 PROMETHEUS_BACKFILL_CHUNK_SECONDS=3600
 PROMETHEUS_INITIAL_BACKFILL_SECONDS=3600
 PROMETHEUS_MAX_BACKFILL_SECONDS=1296000
@@ -242,3 +242,25 @@ BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS=86400
 ```
 
 Nilai default memungkinkan backfill dari retention Prometheus 15 hari, diproses maksimal enam chunk per siklus agar PostgreSQL tidak menerima satu batch yang terlalu besar.
+
+Deployment yang berpindah dari scrape 10 detik ke 1 menit dapat mempertahankan raw
+dan event lama. Normalisasi KPI yang masih dapat direkonstruksi dari raw dijalankan
+satu kali saat writer dihentikan. Gunakan urutan berikut agar sample pada batas
+transisi ikut terambil sebelum KPI dinormalisasi:
+
+```bash
+./promeblackbox.sh validate
+./promeblackbox.sh build-writer
+./promeblackbox.sh writer-stop
+./promeblackbox.sh reload
+# Tunggu sedikitnya satu scrape interval (1 menit).
+./promeblackbox.sh writer-run-once
+./promeblackbox.sh normalize-kpi-1m
+./promeblackbox.sh pg-schema
+./promeblackbox.sh writer-start
+```
+
+Command tersebut membuat backup KPI sebelum membangun ulang bobot availability
+menjadi satu sample per target per menit. Backup pertama disimpan pada tabel
+`db_port_blackbox_hourly_kpi_pre_1m`, `db_port_blackbox_daily_kpi_pre_1m`, dan
+`db_port_blackbox_daily_error_summary_pre_1m`.

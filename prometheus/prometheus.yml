@@ -1,7 +1,7 @@
 global:
-  scrape_interval: 10s
+  scrape_interval: 1m
   scrape_timeout: 8s
-  evaluation_interval: 10s
+  evaluation_interval: 30s
 
 rule_files:
   - /etc/prometheus/alert-rules.yml

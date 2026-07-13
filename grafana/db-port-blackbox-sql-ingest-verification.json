@@ -166,7 +166,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "SQL Recent Targets 45s",
+      "title": "SQL Recent Targets 3m",
       "datasource": {
         "type": "postgres",
         "uid": "grafana-postgresql-datasource"
@@ -186,7 +186,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(DISTINCT r.target_name)::bigint AS recent_targets FROM monitoring.db_port_blackbox_probe_results r WHERE r.checked_at >= now() - interval '45 seconds' AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target');",
+          "rawSql": "SELECT count(DISTINCT r.target_name)::bigint AS recent_targets FROM monitoring.db_port_blackbox_probe_results r WHERE r.checked_at >= now() - interval '3 minutes' AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target');",
           "refId": "A",
           "sql": {
             "columns": [
@@ -244,7 +244,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Missing Recent 45s",
+      "title": "Missing Recent 3m",
       "datasource": {
         "type": "postgres",
         "uid": "grafana-postgresql-datasource"
@@ -264,7 +264,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH active AS (\n  SELECT count(*)::bigint AS c\n  FROM monitoring.db_port_blackbox_targets t\n  WHERE t.is_active = true AND ('$environment' = '.*' OR t.environment = '$environment') AND ('$db_type' = '.*' OR t.db_type = '$db_type') AND ('$target' = '.*' OR t.target_name = '$target')\n), recent AS (\n  SELECT count(DISTINCT r.target_name)::bigint AS c\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.checked_at >= now() - interval '45 seconds' AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target')\n)\nSELECT greatest(active.c - recent.c, 0)::bigint AS missing_targets\nFROM active CROSS JOIN recent;",
+          "rawSql": "WITH active AS (\n  SELECT count(*)::bigint AS c\n  FROM monitoring.db_port_blackbox_targets t\n  WHERE t.is_active = true AND ('$environment' = '.*' OR t.environment = '$environment') AND ('$db_type' = '.*' OR t.db_type = '$db_type') AND ('$target' = '.*' OR t.target_name = '$target')\n), recent AS (\n  SELECT count(DISTINCT r.target_name)::bigint AS c\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.checked_at >= now() - interval '3 minutes' AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target')\n)\nSELECT greatest(active.c - recent.c, 0)::bigint AS missing_targets\nFROM active CROSS JOIN recent;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -382,11 +382,11 @@
               },
               {
                 "color": "yellow",
-                "value": 20
+                "value": 90
               },
               {
                 "color": "red",
-                "value": 60
+                "value": 180
               }
             ]
           }
@@ -412,7 +412,7 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "SQL Coverage 45s",
+      "title": "SQL Coverage 3m",
       "datasource": {
         "type": "postgres",
         "uid": "grafana-postgresql-datasource"
@@ -432,7 +432,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH active AS (\n  SELECT count(*)::numeric AS c\n  FROM monitoring.db_port_blackbox_targets t\n  WHERE t.is_active = true AND ('$environment' = '.*' OR t.environment = '$environment') AND ('$db_type' = '.*' OR t.db_type = '$db_type') AND ('$target' = '.*' OR t.target_name = '$target')\n), recent AS (\n  SELECT count(DISTINCT r.target_name)::numeric AS c\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.checked_at >= now() - interval '45 seconds' AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target')\n)\nSELECT coalesce(round(recent.c / nullif(active.c, 0) * 100, 2), 0) AS coverage_pct\nFROM active CROSS JOIN recent;",
+          "rawSql": "WITH active AS (\n  SELECT count(*)::numeric AS c\n  FROM monitoring.db_port_blackbox_targets t\n  WHERE t.is_active = true AND ('$environment' = '.*' OR t.environment = '$environment') AND ('$db_type' = '.*' OR t.db_type = '$db_type') AND ('$target' = '.*' OR t.target_name = '$target')\n), recent AS (\n  SELECT count(DISTINCT r.target_name)::numeric AS c\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.checked_at >= now() - interval '3 minutes' AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target')\n)\nSELECT coalesce(round(recent.c / nullif(active.c, 0) * 100, 2), 0) AS coverage_pct\nFROM active CROSS JOIN recent;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -519,7 +519,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\n  SELECT date_trunc('minute', $__timeFrom()::timestamptz) AS start_at,\n         date_trunc('minute', $__timeTo()::timestamptz) AS end_at\n), minutes AS (\n  SELECT generate_series(start_at, end_at, interval '1 minute') AS bucket\n  FROM bounds\n), actual AS (\n  SELECT date_trunc('minute', r.checked_at) AS bucket, count(*)::double precision AS actual_rows\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE $__timeFilter(r.checked_at) AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target')\n  GROUP BY 1\n), expected AS (\n  SELECT count(*)::double precision * 6 AS expected_rows\n  FROM monitoring.db_port_blackbox_targets t\n  WHERE t.is_active = true AND ('$environment' = '.*' OR t.environment = '$environment') AND ('$db_type' = '.*' OR t.db_type = '$db_type') AND ('$target' = '.*' OR t.target_name = '$target')\n)\nSELECT m.bucket AS \"time\", 'actual rows/min' AS metric, coalesce(a.actual_rows, 0) AS value\nFROM minutes m\nLEFT JOIN actual a ON a.bucket = m.bucket\nUNION ALL\nSELECT m.bucket AS \"time\", 'expected rows/min' AS metric, e.expected_rows AS value\nFROM minutes m\nCROSS JOIN expected e\nORDER BY 1, 2;",
+          "rawSql": "WITH bounds AS (\n  SELECT date_trunc('minute', $__timeFrom()::timestamptz) AS start_at,\n         date_trunc('minute', $__timeTo()::timestamptz) AS end_at\n), minutes AS (\n  SELECT generate_series(start_at, end_at, interval '1 minute') AS bucket\n  FROM bounds\n), actual AS (\n  SELECT date_trunc('minute', r.checked_at) AS bucket, count(*)::double precision AS actual_rows\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE $__timeFilter(r.checked_at) AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target')\n  GROUP BY 1\n), expected AS (\n  SELECT count(*)::double precision AS expected_rows\n  FROM monitoring.db_port_blackbox_targets t\n  WHERE t.is_active = true AND ('$environment' = '.*' OR t.environment = '$environment') AND ('$db_type' = '.*' OR t.db_type = '$db_type') AND ('$target' = '.*' OR t.target_name = '$target')\n)\nSELECT m.bucket AS \"time\", 'actual rows/min' AS metric, coalesce(a.actual_rows, 0) AS value\nFROM minutes m\nLEFT JOIN actual a ON a.bucket = m.bucket\nUNION ALL\nSELECT m.bucket AS \"time\", 'expected rows/min' AS metric, e.expected_rows AS value\nFROM minutes m\nCROSS JOIN expected e\nORDER BY 1, 2;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -667,7 +667,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms,\n    r.created_at\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms, created_at\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '.*' OR t.environment = '$environment') AND ('$db_type' = '.*' OR t.db_type = '$db_type') AND ('$target' = '.*' OR t.target_name = '$target')\n)\n\nSELECT\n  target_name,\n  environment,\n  db_type,\n  instance,\n  checked_at AS last_probe_at,\n  coalesce(extract(epoch FROM now() - checked_at)::bigint, 999999999) AS age_seconds\nFROM latest\nWHERE checked_at IS NULL OR checked_at < now() - interval '45 seconds'\nORDER BY age_seconds DESC, target_name;",
+          "rawSql": "WITH latest AS (\n  SELECT\n    t.target_name,\n    t.environment,\n    t.db_type,\n    t.instance,\n    t.criticality,\n    t.team,\n    r.checked_at,\n    r.is_up,\n    r.latency_ms,\n    r.created_at\n  FROM monitoring.db_port_blackbox_targets t\n  LEFT JOIN LATERAL (\n    SELECT checked_at, is_up, latency_ms, created_at\n    FROM monitoring.db_port_blackbox_probe_results r\n    WHERE r.target_name = t.target_name\n    ORDER BY checked_at DESC\n    LIMIT 1\n  ) r ON true\n  WHERE t.is_active = true AND ('$environment' = '.*' OR t.environment = '$environment') AND ('$db_type' = '.*' OR t.db_type = '$db_type') AND ('$target' = '.*' OR t.target_name = '$target')\n)\n\nSELECT\n  target_name,\n  environment,\n  db_type,\n  instance,\n  checked_at AS last_probe_at,\n  coalesce(extract(epoch FROM now() - checked_at)::bigint, 999999999) AS age_seconds\nFROM latest\nWHERE checked_at IS NULL OR checked_at < now() - interval '3 minutes'\nORDER BY age_seconds DESC, target_name;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -803,7 +803,7 @@
     {
       "id": 11,
       "type": "table",
-      "title": "Raw vs Daily KPI Drift Today",
+      "title": "Minute-normalized Raw vs Daily KPI Drift Today",
       "datasource": {
         "type": "postgres",
         "uid": "grafana-postgresql-datasource"
@@ -823,7 +823,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH raw_today AS (\n  SELECT\n    r.checked_at::date AS period_start,\n    r.target_name,\n    count(*)::bigint AS raw_probes,\n    sum(CASE WHEN r.is_up = 1 THEN 1 ELSE 0 END)::bigint AS raw_up,\n    sum(CASE WHEN r.is_up = 0 THEN 1 ELSE 0 END)::bigint AS raw_down\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.checked_at >= current_date AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target')\n  GROUP BY 1, 2\n), kpi_today AS (\n  SELECT period_start, target_name, probes, up_probes, down_probes\n  FROM monitoring.db_port_blackbox_daily_kpi\n  WHERE period_start = current_date AND ('$environment' = '.*' OR environment = '$environment') AND ('$db_type' = '.*' OR db_type = '$db_type') AND ('$target' = '.*' OR target_name = '$target')\n)\nSELECT\n  coalesce(k.target_name, r.target_name) AS target_name,\n  coalesce(r.raw_probes, 0) AS raw_probes,\n  coalesce(k.probes, 0) AS kpi_probes,\n  coalesce(r.raw_up, 0) AS raw_up,\n  coalesce(k.up_probes, 0) AS kpi_up,\n  coalesce(r.raw_down, 0) AS raw_down,\n  coalesce(k.down_probes, 0) AS kpi_down\nFROM raw_today r\nFULL JOIN kpi_today k ON k.period_start = r.period_start AND k.target_name = r.target_name\nWHERE coalesce(r.raw_probes, 0) <> coalesce(k.probes, 0)\n   OR coalesce(r.raw_up, 0) <> coalesce(k.up_probes, 0)\n   OR coalesce(r.raw_down, 0) <> coalesce(k.down_probes, 0)\nORDER BY 1;",
+          "rawSql": "WITH minute_samples AS (\n  SELECT\n    date_trunc('minute', r.checked_at) AS period_minute,\n    r.target_name,\n    min(r.is_up) AS is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.checked_at >= current_date AND ('$environment' = '.*' OR r.environment = '$environment') AND ('$db_type' = '.*' OR r.db_type = '$db_type') AND ('$target' = '.*' OR r.target_name = '$target')\n  GROUP BY 1, 2\n), raw_today AS (\n  SELECT\n    period_minute::date AS period_start,\n    target_name,\n    count(*)::bigint AS raw_probes,\n    count(*) FILTER (WHERE is_up = 1)::bigint AS raw_up,\n    count(*) FILTER (WHERE is_up = 0)::bigint AS raw_down\n  FROM minute_samples\n  GROUP BY 1, 2\n), kpi_today AS (\n  SELECT period_start, target_name, probes, up_probes, down_probes\n  FROM monitoring.db_port_blackbox_daily_kpi\n  WHERE period_start = current_date AND ('$environment' = '.*' OR environment = '$environment') AND ('$db_type' = '.*' OR db_type = '$db_type') AND ('$target' = '.*' OR target_name = '$target')\n)\nSELECT\n  coalesce(k.target_name, r.target_name) AS target_name,\n  coalesce(r.raw_probes, 0) AS normalized_raw_probes,\n  coalesce(k.probes, 0) AS kpi_probes,\n  coalesce(r.raw_up, 0) AS normalized_raw_up,\n  coalesce(k.up_probes, 0) AS kpi_up,\n  coalesce(r.raw_down, 0) AS normalized_raw_down,\n  coalesce(k.down_probes, 0) AS kpi_down\nFROM raw_today r\nFULL JOIN kpi_today k ON k.period_start = r.period_start AND k.target_name = r.target_name\nWHERE coalesce(r.raw_probes, 0) <> coalesce(k.probes, 0)\n   OR coalesce(r.raw_up, 0) <> coalesce(k.up_probes, 0)\n   OR coalesce(r.raw_down, 0) <> coalesce(k.down_probes, 0)\nORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1161,11 +1161,11 @@
               },
               {
                 "color": "yellow",
-                "value": 20
+                "value": 90
               },
               {
                 "color": "red",
-                "value": 60
+                "value": 180
               }
             ]
           }
@@ -1261,7 +1261,7 @@
       }
     }
   ],
-  "refresh": "10s",
+  "refresh": "30s",
   "schemaVersion": 41,
   "tags": [
     "database",
@@ -1355,7 +1355,6 @@
   },
   "timepicker": {
     "refresh_intervals": [
-      "10s",
       "30s",
       "1m",
       "5m",
@@ -1366,6 +1365,6 @@
   "timezone": "browser",
   "title": "DB Port Blackbox SQL Ingest Verification",
   "uid": "db-port-blackbox-sql-ingest-verification",
-  "version": 4,
+  "version": 5,
   "weekStart": ""
 }

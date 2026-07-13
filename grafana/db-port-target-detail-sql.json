@@ -142,7 +142,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT coalesce(round(avg(r.is_up)::numeric * 100, 2), 0) AS availability_pct\nFROM monitoring.db_port_blackbox_probe_results r\nWHERE $__timeFilter(r.checked_at) AND ('$env' = '%' OR r.environment = '$env') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND r.target_name = '$target';",
+          "rawSql": "WITH minute_samples AS (\n  SELECT\n    date_trunc('minute', r.checked_at) AS period_minute,\n    min(r.is_up) AS is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE $__timeFilter(r.checked_at) AND ('$env' = '%' OR r.environment = '$env') AND ('$db_type' = '%' OR r.db_type = '$db_type') AND r.target_name = '$target'\n  GROUP BY 1\n)\nSELECT coalesce(round(avg(is_up)::numeric * 100, 2), 0) AS availability_pct\nFROM minute_samples;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1383,7 +1383,6 @@
   },
   "timepicker": {
     "refresh_intervals": [
-      "10s",
       "30s",
       "1m",
       "5m",
@@ -1395,6 +1394,6 @@
   "timezone": "browser",
   "title": "DB Port Target Detail - SQL",
   "uid": "db-port-target-detail-sql",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }
