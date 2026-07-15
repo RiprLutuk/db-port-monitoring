@@ -1,0 +1,1609 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "description": "Executive database-port availability reporting from normalized one-minute KPI and long-lived incident events. Use the dashboard time range, reporting period, SLA, and scope filters to produce daily, weekly, or monthly reports.",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Targets",
+      "description": "Distinct targets with KPI observations in the selected time range and filter scope.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(DISTINCT h.target_name)::bigint AS targets\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team');",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Availability",
+      "description": "Equal-weight average of each target's availability in the selected time range.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 3,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT coalesce(round(avg(availability), 2), 0) AS availability_pct FROM target_kpi;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "SLA Met",
+      "description": "Percentage of observed targets whose availability meets the selected SLA threshold.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT coalesce(round(count(*) FILTER (WHERE availability >= ${sla:raw})::numeric / nullif(count(*), 0) * 100, 2), 0) AS sla_met_pct FROM target_kpi;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Below SLA",
+      "description": "Number of observed targets whose availability is below the selected SLA threshold.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 9,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT count(*) FILTER (WHERE availability < ${sla:raw})::bigint AS below_sla FROM target_kpi;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Down Target-Min",
+      "description": "Total failed target-minutes. For example, two targets down for ten minutes equal twenty target-minutes.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(sum(h.down_probes), 0)::bigint AS down_target_minutes\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team');",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Incident Starts",
+      "description": "Downtime events whose start timestamp falls inside the selected time range.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*)::bigint AS incidents_started\nFROM monitoring.db_port_blackbox_downtime_events e\nWHERE $__timeFilter(e.down_start) AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team');",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "MTTR (Closed)",
+      "description": "Average duration in minutes of closed downtime events that started in the selected time range. Open events are excluded.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(round(avg(extract(epoch FROM e.down_end - e.down_start) / 60.0)::numeric, 2), 0) AS mttr_minutes\nFROM monitoring.db_port_blackbox_downtime_events e\nWHERE $__timeFilter(e.down_start) AND e.down_end IS NOT NULL AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team');",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Avg Latency",
+      "description": "Weighted average latency of successful probes from the normalized hourly KPI.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(round(sum(h.latency_ms_sum) / nullif(sum(h.latency_ms_count), 0), 2), 0) AS avg_latency_ms\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team');",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 3000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Availability Trend",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', h.period_hour) AS period_start, h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start AS \"time\", 'Availability' AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_period\nGROUP BY period_start\nORDER BY period_start;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "SLA Compliance Trend",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', h.period_hour) AS period_start, h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start AS \"time\", 'SLA Met' AS metric, round(count(*) FILTER (WHERE availability >= ${sla:raw})::numeric / nullif(count(*), 0) * 100, 2)::double precision AS value\nFROM target_period\nGROUP BY period_start\nORDER BY period_start;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Down Target-Minutes by Period",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('${grain:raw}', h.period_hour) AS \"time\", 'Down Target-Minutes' AS metric, sum(h.down_probes)::double precision AS value\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\nGROUP BY 1\nORDER BY 1;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Incidents Started by Period",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT date_trunc('${grain:raw}', $__timeFrom()::timestamptz) AS from_at, date_trunc('${grain:raw}', $__timeTo()::timestamptz) AS to_at\n), buckets AS (\n  SELECT generate_series(from_at, to_at, CASE '${grain:raw}' WHEN 'day' THEN interval '1 day' WHEN 'week' THEN interval '1 week' ELSE interval '1 month' END) AS period_start\n  FROM bounds\n), incidents AS (\n  SELECT date_trunc('${grain:raw}', e.down_start) AS period_start, count(*)::double precision AS incident_count\n  FROM monitoring.db_port_blackbox_downtime_events e\n  WHERE $__timeFilter(e.down_start) AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n  GROUP BY 1\n)\nSELECT b.period_start AS \"time\", 'Incidents' AS metric, coalesce(i.incident_count, 0) AS value\nFROM buckets b\nLEFT JOIN incidents i USING (period_start)\nORDER BY b.period_start;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "Availability by Env / DB Type",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, max(h.environment) AS environment, max(h.db_type) AS db_type, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT now() AS \"time\", environment || ' / ' || db_type AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_kpi\nGROUP BY environment, db_type\nORDER BY value ASC, metric;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "Availability by Criticality",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 20,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, coalesce(max(h.criticality), 'unassigned') AS criticality, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT now() AS \"time\", criticality AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_kpi\nGROUP BY criticality\nORDER BY value ASC, metric;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 15,
+      "type": "bargauge",
+      "title": "Bottom 10 Targets",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 20,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n), bottom_targets AS (\n  SELECT target_name, availability FROM target_kpi ORDER BY availability ASC, target_name LIMIT 10\n)\nSELECT now() AS \"time\", target_name AS metric, round(availability, 2)::double precision AS value\nFROM bottom_targets\nORDER BY value ASC, metric;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 16,
+      "type": "table",
+      "title": "Period KPI Summary",
+      "description": "Export-ready KPI summary grouped by the selected daily, weekly, or monthly reporting period.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', h.period_hour) AS period_start, h.target_name, sum(h.probes)::bigint AS observed_minutes, sum(h.up_probes)::bigint AS up_minutes, sum(h.down_probes)::bigint AS down_minutes, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability, sum(h.latency_ms_sum) AS latency_ms_sum, sum(h.latency_ms_count)::bigint AS latency_ms_count\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start, count(*)::bigint AS targets, sum(observed_minutes)::bigint AS observed_target_minutes, sum(up_minutes)::bigint AS up_target_minutes, sum(down_minutes)::bigint AS down_target_minutes, round(avg(availability), 2) AS availability_pct, count(*) FILTER (WHERE availability >= ${sla:raw})::bigint AS targets_meeting_sla, count(*) FILTER (WHERE availability < ${sla:raw})::bigint AS targets_below_sla, round(sum(latency_ms_sum) / nullif(sum(latency_ms_count), 0), 2) AS avg_latency_ms\nFROM target_period\nGROUP BY period_start\nORDER BY period_start DESC;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "availability_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_latency_ms"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "id": 17,
+      "type": "table",
+      "title": "Target KPI Detail",
+      "description": "Per-target KPI detail for the selected range, ordered from the lowest availability to support exception reporting.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, max(h.environment) AS environment, max(h.db_type) AS db_type, coalesce(max(h.criticality), 'unassigned') AS criticality, coalesce(max(h.team), 'unassigned') AS team, sum(h.probes)::bigint AS observed_minutes, sum(h.up_probes)::bigint AS up_minutes, sum(h.down_probes)::bigint AS down_minutes, sum(h.slow_probes)::bigint AS slow_minutes, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability, sum(h.latency_ms_sum) AS latency_ms_sum, sum(h.latency_ms_count)::bigint AS latency_ms_count, max(h.max_latency_ms) AS max_latency_ms\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n), incidents AS (\n  SELECT e.target_name, count(*)::bigint AS incidents_started\n  FROM monitoring.db_port_blackbox_downtime_events e\n  WHERE $__timeFilter(e.down_start) AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n  GROUP BY e.target_name\n)\nSELECT k.target_name, k.environment, k.db_type, k.criticality, k.team, CASE WHEN latest.is_up = 1 THEN 'UP' WHEN latest.is_up = 0 THEN 'DOWN' ELSE 'UNKNOWN' END AS current_status, k.observed_minutes, k.up_minutes, k.down_minutes, round(k.availability, 2) AS availability_pct, CASE WHEN k.availability >= ${sla:raw} THEN 'MET' ELSE 'BELOW' END AS sla_status, coalesce(i.incidents_started, 0)::bigint AS incidents_started, k.slow_minutes, round(k.latency_ms_sum / nullif(k.latency_ms_count, 0), 2) AS avg_latency_ms, round(k.max_latency_ms, 2) AS max_latency_ms, latest.checked_at AS last_probe_at\nFROM target_kpi k\nLEFT JOIN incidents i USING (target_name)\nLEFT JOIN LATERAL (\n  SELECT r.checked_at, r.is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.target_name = k.target_name\n  ORDER BY r.checked_at DESC\n  LIMIT 1\n) latest ON true\nORDER BY k.availability ASC, k.down_minutes DESC, k.target_name;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "availability_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_latency_ms"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max_latency_ms"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "id": 18,
+      "type": "table",
+      "title": "Downtime Incident Detail",
+      "description": "Downtime events overlapping the selected range. Duration in range is clipped to the report window; full duration covers the entire event.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 24,
+        "h": 11
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::timestamptz AS from_at, $__timeTo()::timestamptz AS to_at\n)\nSELECT e.target_name, e.environment, e.db_type, coalesce(e.criticality, 'unassigned') AS criticality, coalesce(e.team, 'unassigned') AS team, e.down_start, e.down_end, CASE WHEN e.down_end IS NULL THEN 'OPEN' ELSE 'CLOSED' END AS event_status, round(extract(epoch FROM least(coalesce(e.down_end, now()), b.to_at) - greatest(e.down_start, b.from_at))::numeric / 60.0, 2) AS duration_in_range_minutes, round(extract(epoch FROM coalesce(e.down_end, now()) - e.down_start)::numeric / 60.0, 2) AS full_duration_minutes, e.down_samples, e.first_error_text, e.last_error_text\nFROM monitoring.db_port_blackbox_downtime_events e\nCROSS JOIN bounds b\nWHERE e.down_start < b.to_at AND coalesce(e.down_end, now()) > b.from_at AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\nORDER BY e.down_start DESC\nLIMIT 500;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duration_in_range_minutes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "full_duration_minutes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 41,
+  "tags": [
+    "database",
+    "blackbox",
+    "postgresql",
+    "kpi",
+    "reporting",
+    "executive"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "Daily",
+          "value": "day"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Period",
+        "multi": false,
+        "name": "grain",
+        "options": [
+          {
+            "selected": true,
+            "text": "Daily",
+            "value": "day"
+          },
+          {
+            "selected": false,
+            "text": "Weekly",
+            "value": "week"
+          },
+          {
+            "selected": false,
+            "text": "Monthly",
+            "value": "month"
+          }
+        ],
+        "query": "Daily : day,Weekly : week,Monthly : month",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "99.90%",
+          "value": "99.9"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "SLA",
+        "multi": false,
+        "name": "sla",
+        "options": [
+          {
+            "selected": true,
+            "text": "99.90%",
+            "value": "99.9"
+          },
+          {
+            "selected": false,
+            "text": "99.50%",
+            "value": "99.5"
+          },
+          {
+            "selected": false,
+            "text": "99.00%",
+            "value": "99.0"
+          },
+          {
+            "selected": false,
+            "text": "95.00%",
+            "value": "95.0"
+          }
+        ],
+        "query": "99.90% : 99.9,99.50% : 99.5,99.00% : 99.0,95.00% : 95.0",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "%"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT DISTINCT environment AS __text, environment AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) ORDER BY 1;",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "%",
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": "SELECT DISTINCT environment AS __text, environment AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) ORDER BY 1;",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "%"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT DISTINCT db_type AS __text, db_type AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') ORDER BY 1;",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "%",
+        "label": "DB Type",
+        "multi": false,
+        "name": "db_type",
+        "options": [],
+        "query": "SELECT DISTINCT db_type AS __text, db_type AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') ORDER BY 1;",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "%"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT DISTINCT target_name AS __text, target_name AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') ORDER BY 1;",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "%",
+        "label": "DB Name",
+        "multi": false,
+        "name": "target",
+        "options": [],
+        "query": "SELECT DISTINCT target_name AS __text, target_name AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') ORDER BY 1;",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "%"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT DISTINCT coalesce(criticality, 'unassigned') AS __text, coalesce(criticality, 'unassigned') AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') ORDER BY 1;",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "%",
+        "label": "Criticality",
+        "multi": false,
+        "name": "criticality",
+        "options": [],
+        "query": "SELECT DISTINCT coalesce(criticality, 'unassigned') AS __text, coalesce(criticality, 'unassigned') AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') ORDER BY 1;",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "%"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT DISTINCT coalesce(team, 'unassigned') AS __text, coalesce(team, 'unassigned') AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') AND ('$criticality' = '%' OR coalesce(criticality, 'unassigned') = '$criticality') ORDER BY 1;",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": "%",
+        "label": "Team",
+        "multi": false,
+        "name": "team",
+        "options": [],
+        "query": "SELECT DISTINCT coalesce(team, 'unassigned') AS __text, coalesce(team, 'unassigned') AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') AND ('$criticality' = '%' OR coalesce(criticality, 'unassigned') = '$criticality') ORDER BY 1;",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "DB Port KPI Executive Reporting - SQL",
+  "uid": "db-port-kpi-executive-reporting-sql",
+  "version": 1,
+  "weekStart": "monday"
+}

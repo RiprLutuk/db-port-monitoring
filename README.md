@@ -123,6 +123,7 @@ Import dashboard JSON berikut:
 - `grafana/db-port-availability-overview-sql.json`
 - `grafana/db-port-target-detail-sql.json`
 - `grafana/db-port-blackbox-sql-ingest-verification.json`
+- `grafana/db-port-kpi-executive-reporting-sql.json`
 
 Dashboard overview berisi ringkasan global, DOWN by env/db type, latency group, dan tabel status target.
 
@@ -139,6 +140,8 @@ Dashboard SQL juga memakai tabel summary-detail jangka panjang untuk tetap bisa 
 - `monitoring.db_port_blackbox_daily_error_summary`
 
 Dashboard SQL ingest verification dipakai untuk memastikan stream Prometheus sudah masuk PostgreSQL tanpa target missing, ingest lag tinggi, backlog backfill, writer failure, atau drift antara raw data dan aggregate KPI.
+
+Dashboard KPI executive reporting menyediakan pilihan periode harian, mingguan, atau bulanan; SLA threshold; filter environment, DB type, target, criticality, dan team; executive KPI; tren; breakdown; serta tabel periode, target, dan downtime incident yang dapat diekspor untuk reporting. KPI historisnya memakai agregat per jam yang disimpan 400 hari, sedangkan detail incident tetap tersedia dari tabel event meskipun raw sample sudah melewati retensi 30 hari.
 
 ## PromQL Utama
 
