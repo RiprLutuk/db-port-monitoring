@@ -8,9 +8,14 @@
 \set raw_retention_days 30
 \endif
 
-\if :{?kpi_retention_days}
+\if :{?hourly_retention_days}
 \else
-\set kpi_retention_days 400
+\set hourly_retention_days 400
+\endif
+
+\if :{?report_retention_days}
+\else
+\set report_retention_days 2192
 \endif
 
 \if :{?target_inactive_after_seconds}
@@ -164,8 +169,10 @@ WITH daily AS (
         count(*)::bigint AS probes,
         sum(CASE WHEN is_up = 1 THEN 1 ELSE 0 END)::bigint AS up_probes,
         sum(CASE WHEN is_up = 0 THEN 1 ELSE 0 END)::bigint AS down_probes,
+        count(*) FILTER (WHERE is_up = 1 AND latency_ms > 3000)::bigint AS slow_probes,
         coalesce(sum(latency_ms) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL), 0) AS latency_ms_sum,
         count(latency_ms) FILTER (WHERE is_up = 1)::bigint AS latency_ms_count,
+        max(latency_ms) FILTER (WHERE is_up = 1) AS max_latency_ms,
         min(checked_at) AS first_probe_at,
         max(checked_at) AS last_probe_at
     FROM inserted_probe_rows
@@ -184,8 +191,10 @@ INSERT INTO :"schema_name".db_port_blackbox_daily_kpi AS kpi (
     probes,
     up_probes,
     down_probes,
+    slow_probes,
     latency_ms_sum,
     latency_ms_count,
+    max_latency_ms,
     first_probe_at,
     last_probe_at
 )
@@ -202,8 +211,10 @@ SELECT
     probes,
     up_probes,
     down_probes,
+    slow_probes,
     latency_ms_sum,
     latency_ms_count,
+    max_latency_ms,
     first_probe_at,
     last_probe_at
 FROM daily
@@ -218,8 +229,10 @@ ON CONFLICT (period_start, target_name) DO UPDATE SET
     probes = kpi.probes + EXCLUDED.probes,
     up_probes = kpi.up_probes + EXCLUDED.up_probes,
     down_probes = kpi.down_probes + EXCLUDED.down_probes,
+    slow_probes = kpi.slow_probes + EXCLUDED.slow_probes,
     latency_ms_sum = kpi.latency_ms_sum + EXCLUDED.latency_ms_sum,
     latency_ms_count = kpi.latency_ms_count + EXCLUDED.latency_ms_count,
+    max_latency_ms = greatest(coalesce(kpi.max_latency_ms, EXCLUDED.max_latency_ms), EXCLUDED.max_latency_ms),
     first_probe_at = least(coalesce(kpi.first_probe_at, EXCLUDED.first_probe_at), EXCLUDED.first_probe_at),
     last_probe_at = greatest(coalesce(kpi.last_probe_at, EXCLUDED.last_probe_at), EXCLUDED.last_probe_at),
     updated_at = now();
@@ -562,22 +575,22 @@ DELETE FROM :"schema_name".db_port_blackbox_probe_results
 WHERE checked_at < now() - (:'raw_retention_days' || ' days')::interval;
 
 DELETE FROM :"schema_name".db_port_blackbox_daily_kpi
-WHERE period_start < (current_date - :kpi_retention_days::int);
+WHERE period_start < (current_date - :report_retention_days::int);
 
 DELETE FROM :"schema_name".db_port_blackbox_hourly_kpi
-WHERE period_hour < now() - (:'kpi_retention_days' || ' days')::interval;
+WHERE period_hour < now() - (:'hourly_retention_days' || ' days')::interval;
 
 DELETE FROM :"schema_name".db_port_blackbox_status_events
-WHERE event_at < now() - (:'kpi_retention_days' || ' days')::interval;
+WHERE event_at < now() - (:'report_retention_days' || ' days')::interval;
 
 DELETE FROM :"schema_name".db_port_blackbox_downtime_events
-WHERE down_start < now() - (:'kpi_retention_days' || ' days')::interval;
+WHERE down_end < now() - (:'report_retention_days' || ' days')::interval;
 
 DELETE FROM :"schema_name".db_port_blackbox_latency_events
-WHERE slow_start < now() - (:'kpi_retention_days' || ' days')::interval;
+WHERE slow_end < now() - (:'report_retention_days' || ' days')::interval;
 
 DELETE FROM :"schema_name".db_port_blackbox_daily_error_summary
-WHERE period_start < (current_date - :kpi_retention_days::int);
+WHERE period_start < (current_date - :report_retention_days::int);
 
 SELECT count(*)::bigint AS inserted_probe_rows
 FROM inserted_probe_rows;

@@ -118,13 +118,21 @@ CREATE TABLE IF NOT EXISTS :"schema_name".db_port_blackbox_daily_kpi (
     probes bigint NOT NULL DEFAULT 0,
     up_probes bigint NOT NULL DEFAULT 0,
     down_probes bigint NOT NULL DEFAULT 0,
+    slow_probes bigint NOT NULL DEFAULT 0,
     latency_ms_sum numeric NOT NULL DEFAULT 0,
     latency_ms_count bigint NOT NULL DEFAULT 0,
+    max_latency_ms numeric NULL,
     first_probe_at timestamptz NULL,
     last_probe_at timestamptz NULL,
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (period_start, target_name)
 );
+
+ALTER TABLE :"schema_name".db_port_blackbox_daily_kpi
+ADD COLUMN IF NOT EXISTS slow_probes bigint NOT NULL DEFAULT 0;
+
+ALTER TABLE :"schema_name".db_port_blackbox_daily_kpi
+ADD COLUMN IF NOT EXISTS max_latency_ms numeric NULL;
 
 CREATE INDEX IF NOT EXISTS idx_db_port_blackbox_daily_kpi_target_period
 ON :"schema_name".db_port_blackbox_daily_kpi (target_name, period_start DESC);
@@ -373,8 +381,10 @@ INSERT INTO :"schema_name".db_port_blackbox_daily_kpi (
     probes,
     up_probes,
     down_probes,
+    slow_probes,
     latency_ms_sum,
     latency_ms_count,
+    max_latency_ms,
     first_probe_at,
     last_probe_at
 )
@@ -391,8 +401,10 @@ SELECT
     count(*)::bigint,
     sum(CASE WHEN is_up = 1 THEN 1 ELSE 0 END)::bigint,
     sum(CASE WHEN is_up = 0 THEN 1 ELSE 0 END)::bigint,
+    count(*) FILTER (WHERE is_slow)::bigint,
     coalesce(sum(latency_ms) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL), 0),
     count(latency_ms) FILTER (WHERE is_up = 1)::bigint,
+    max(max_latency_ms) FILTER (WHERE is_up = 1),
     min(first_probe_at),
     max(last_probe_at)
 FROM blackbox_normalized_minute_samples
@@ -408,8 +420,10 @@ ON CONFLICT (period_start, target_name) DO UPDATE SET
     probes = EXCLUDED.probes,
     up_probes = EXCLUDED.up_probes,
     down_probes = EXCLUDED.down_probes,
+    slow_probes = EXCLUDED.slow_probes,
     latency_ms_sum = EXCLUDED.latency_ms_sum,
     latency_ms_count = EXCLUDED.latency_ms_count,
+    max_latency_ms = EXCLUDED.max_latency_ms,
     first_probe_at = EXCLUDED.first_probe_at,
     last_probe_at = EXCLUDED.last_probe_at,
     updated_at = now();
@@ -780,7 +794,9 @@ SELECT
     down_probes,
     round(up_probes::numeric / nullif(probes, 0) * 100, 2) AS availability_pct,
     round(latency_ms_sum / nullif(latency_ms_count, 0), 2) AS avg_latency_ms,
-    last_probe_at
+    last_probe_at,
+    slow_probes,
+    round(max_latency_ms, 2) AS max_latency_ms
 FROM :"schema_name".db_port_blackbox_daily_kpi;
 
 CREATE OR REPLACE VIEW :"schema_name".db_port_blackbox_monthly_availability AS
@@ -795,7 +811,9 @@ SELECT
     sum(down_probes)::bigint AS down_probes,
     round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2) AS availability_pct,
     round(sum(latency_ms_sum) / nullif(sum(latency_ms_count), 0), 2) AS avg_latency_ms,
-    max(last_probe_at) AS last_probe_at
+    max(last_probe_at) AS last_probe_at,
+    sum(slow_probes)::bigint AS slow_probes,
+    round(max(max_latency_ms), 2) AS max_latency_ms
 FROM :"schema_name".db_port_blackbox_daily_kpi
 GROUP BY 1, 2, 3, 4, 5;
 
@@ -811,7 +829,9 @@ SELECT
     sum(down_probes)::bigint AS down_probes,
     round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2) AS availability_pct,
     round(sum(latency_ms_sum) / nullif(sum(latency_ms_count), 0), 2) AS avg_latency_ms,
-    max(last_probe_at) AS last_probe_at
+    max(last_probe_at) AS last_probe_at,
+    sum(slow_probes)::bigint AS slow_probes,
+    round(max(max_latency_ms), 2) AS max_latency_ms
 FROM :"schema_name".db_port_blackbox_daily_kpi
 GROUP BY 1, 2, 3, 4, 5;
 

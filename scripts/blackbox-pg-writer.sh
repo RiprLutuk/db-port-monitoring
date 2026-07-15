@@ -8,7 +8,8 @@ source "${SCRIPT_DIR}/common.sh"
 : "${PROMETHEUS_URL:=http://prometheus:9090}"
 : "${WRITE_INTERVAL_SECONDS:=60}"
 : "${BLACKBOX_RAW_RETENTION_DAYS:=${BLACKBOX_RETENTION_DAYS:-30}}"
-: "${BLACKBOX_KPI_RETENTION_DAYS:=400}"
+: "${BLACKBOX_HOURLY_RETENTION_DAYS:=${BLACKBOX_KPI_RETENTION_DAYS:-400}}"
+: "${BLACKBOX_REPORT_RETENTION_DAYS:=2192}"
 : "${BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS:=86400}"
 : "${PROMETHEUS_QUERY_OVERLAP_SECONDS:=180}"
 : "${PROMETHEUS_BACKFILL_CHUNK_SECONDS:=3600}"
@@ -33,8 +34,13 @@ if ! positive_int "$BLACKBOX_RAW_RETENTION_DAYS"; then
   exit 1
 fi
 
-if ! positive_int "$BLACKBOX_KPI_RETENTION_DAYS"; then
-  log ERROR "BLACKBOX_KPI_RETENTION_DAYS must be a positive integer"
+if ! positive_int "$BLACKBOX_HOURLY_RETENTION_DAYS"; then
+  log ERROR "BLACKBOX_HOURLY_RETENTION_DAYS must be a positive integer"
+  exit 1
+fi
+
+if ! positive_int "$BLACKBOX_REPORT_RETENTION_DAYS"; then
+  log ERROR "BLACKBOX_REPORT_RETENTION_DAYS must be a positive integer"
   exit 1
 fi
 
@@ -272,7 +278,8 @@ ingest_window() {
   if ! psql_output="$("${SCRIPT_DIR}/run-psql.sh" \
     -qAt \
     -v raw_retention_days="$BLACKBOX_RAW_RETENTION_DAYS" \
-    -v kpi_retention_days="$BLACKBOX_KPI_RETENTION_DAYS" \
+    -v hourly_retention_days="$BLACKBOX_HOURLY_RETENTION_DAYS" \
+    -v report_retention_days="$BLACKBOX_REPORT_RETENTION_DAYS" \
     -v target_inactive_after_seconds="$BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS" \
     -f "$ingest_sql")"; then
     log ERROR "PostgreSQL ingest failed for epoch window ${window_start_epoch}-${window_end_epoch}"

@@ -144,8 +144,10 @@ INSERT INTO db_port_blackbox_daily_kpi (
     probes,
     up_probes,
     down_probes,
+    slow_probes,
     latency_ms_sum,
     latency_ms_count,
+    max_latency_ms,
     first_probe_at,
     last_probe_at
 )
@@ -162,8 +164,10 @@ SELECT
     count(*)::bigint,
     count(*) FILTER (WHERE is_up = 1)::bigint,
     count(*) FILTER (WHERE is_up = 0)::bigint,
+    count(*) FILTER (WHERE is_slow)::bigint,
     coalesce(sum(latency_ms) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL), 0),
     count(latency_ms) FILTER (WHERE is_up = 1)::bigint,
+    max(max_latency_ms) FILTER (WHERE is_up = 1),
     min(first_probe_at),
     max(last_probe_at)
 FROM normalized_minute_samples

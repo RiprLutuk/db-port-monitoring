@@ -986,7 +986,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  date_trunc('month', period_start::timestamptz) AS \"time\",\n  target_name AS metric,\n  round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_daily_kpi\nWHERE period_start >= current_date - interval '400 days' AND ('$env' = '%' OR environment = '$env') AND ('$db_type' = '%' OR db_type = '$db_type') AND target_name = '$target'\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "rawSql": "SELECT\n  date_trunc('month', period_start::timestamptz) AS \"time\",\n  target_name AS metric,\n  round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_daily_kpi\nWHERE period_start >= current_date - interval '2192 days' AND ('$env' = '%' OR environment = '$env') AND ('$db_type' = '%' OR db_type = '$db_type') AND target_name = '$target'\nGROUP BY 1, 2\nORDER BY 1, 2;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1045,7 +1045,7 @@
           "sort": "desc"
         }
       },
-      "timeFrom": "400d",
+      "timeFrom": "2192d",
       "hideTimeOverride": false
     },
     {
@@ -1394,6 +1394,6 @@
   "timezone": "browser",
   "title": "DB Port Target Detail - SQL",
   "uid": "db-port-target-detail-sql",
-  "version": 4,
+  "version": 5,
   "weekStart": ""
 }

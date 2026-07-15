@@ -1211,7 +1211,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  date_trunc('month', period_start::timestamptz) AS \"time\",\n  environment || ' / ' || db_type AS metric,\n  round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_daily_kpi\nWHERE period_start >= current_date - interval '400 days' AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target')\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "rawSql": "SELECT\n  date_trunc('month', period_start::timestamptz) AS \"time\",\n  environment || ' / ' || db_type AS metric,\n  round(sum(up_probes)::numeric / nullif(sum(probes), 0) * 100, 2)::double precision AS value\nFROM monitoring.db_port_blackbox_daily_kpi\nWHERE period_start >= current_date - interval '2192 days' AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target')\nGROUP BY 1, 2\nORDER BY 1, 2;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1270,7 +1270,7 @@
           "sort": "desc"
         }
       },
-      "timeFrom": "400d",
+      "timeFrom": "2192d",
       "hideTimeOverride": false
     },
     {
@@ -1956,6 +1956,6 @@
   "timezone": "browser",
   "title": "DB Port Availability Overview - SQL",
   "uid": "db-port-availability-overview-sql",
-  "version": 4,
+  "version": 5,
   "weekStart": ""
 }

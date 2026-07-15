@@ -21,7 +21,7 @@
   "id": null,
   "links": [],
   "liveNow": false,
-  "description": "Executive database-port availability reporting from normalized one-minute KPI and long-lived incident events. Use the dashboard time range, reporting period, SLA, and scope filters to produce daily, weekly, or monthly reports.",
+  "description": "Executive gross technical availability reporting from storage-efficient daily KPI and long-lived incident events. Planned maintenance is not excluded. Use the dashboard time range, reporting period, SLA, and scope filters to produce daily, weekly, monthly, and year-over-year reports.",
   "panels": [
     {
       "id": 1,
@@ -47,7 +47,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(DISTINCT h.target_name)::bigint AS targets\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team');",
+          "rawSql": "SELECT count(DISTINCT d.target_name)::bigint AS targets\nFROM monitoring.db_port_blackbox_daily_kpi d\nWHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team');",
           "refId": "A"
         }
       ],
@@ -90,7 +90,7 @@
       "id": 2,
       "type": "stat",
       "title": "Availability",
-      "description": "Equal-weight average of each target's availability in the selected time range.",
+      "description": "Equal-weight average of each target's gross technical availability in the selected time range. Planned maintenance is not excluded.",
       "datasource": {
         "type": "postgres",
         "uid": "grafana-postgresql-datasource"
@@ -110,7 +110,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT coalesce(round(avg(availability), 2), 0) AS availability_pct FROM target_kpi;",
+          "rawSql": "WITH target_kpi AS (\n  SELECT d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n)\nSELECT coalesce(round(avg(availability), 2), 0) AS availability_pct FROM target_kpi;",
           "refId": "A"
         }
       ],
@@ -183,7 +183,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT coalesce(round(count(*) FILTER (WHERE availability >= ${sla:raw})::numeric / nullif(count(*), 0) * 100, 2), 0) AS sla_met_pct FROM target_kpi;",
+          "rawSql": "WITH target_kpi AS (\n  SELECT d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n)\nSELECT coalesce(round(count(*) FILTER (WHERE availability >= ${sla:raw})::numeric / nullif(count(*), 0) * 100, 2), 0) AS sla_met_pct FROM target_kpi;",
           "refId": "A"
         }
       ],
@@ -256,7 +256,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT count(*) FILTER (WHERE availability < ${sla:raw})::bigint AS below_sla FROM target_kpi;",
+          "rawSql": "WITH target_kpi AS (\n  SELECT d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n)\nSELECT count(*) FILTER (WHERE availability < ${sla:raw})::bigint AS below_sla FROM target_kpi;",
           "refId": "A"
         }
       ],
@@ -323,7 +323,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT coalesce(sum(h.down_probes), 0)::bigint AS down_target_minutes\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team');",
+          "rawSql": "SELECT coalesce(sum(d.down_probes), 0)::bigint AS down_target_minutes\nFROM monitoring.db_port_blackbox_daily_kpi d\nWHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team');",
           "refId": "A"
         }
       ],
@@ -394,7 +394,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*)::bigint AS incidents_started\nFROM monitoring.db_port_blackbox_downtime_events e\nWHERE $__timeFilter(e.down_start) AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team');",
+          "rawSql": "SELECT count(*)::bigint AS incidents_started\nFROM monitoring.db_port_blackbox_downtime_events e\nWHERE e.down_start::date BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team');",
           "refId": "A"
         }
       ],
@@ -465,7 +465,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT coalesce(round(avg(extract(epoch FROM e.down_end - e.down_start) / 60.0)::numeric, 2), 0) AS mttr_minutes\nFROM monitoring.db_port_blackbox_downtime_events e\nWHERE $__timeFilter(e.down_start) AND e.down_end IS NOT NULL AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team');",
+          "rawSql": "SELECT coalesce(round(avg(extract(epoch FROM e.down_end - e.down_start) / 60.0)::numeric, 2), 0) AS mttr_minutes\nFROM monitoring.db_port_blackbox_downtime_events e\nWHERE e.down_start::date BETWEEN $__timeFrom()::date AND $__timeTo()::date AND e.down_end IS NOT NULL AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team');",
           "refId": "A"
         }
       ],
@@ -536,7 +536,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT coalesce(round(sum(h.latency_ms_sum) / nullif(sum(h.latency_ms_count), 0), 2), 0) AS avg_latency_ms\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team');",
+          "rawSql": "SELECT coalesce(round(sum(d.latency_ms_sum) / nullif(sum(d.latency_ms_count), 0), 2), 0) AS avg_latency_ms\nFROM monitoring.db_port_blackbox_daily_kpi d\nWHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team');",
           "refId": "A"
         }
       ],
@@ -593,7 +593,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 8,
         "w": 12,
         "h": 8
       },
@@ -606,7 +606,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', h.period_hour) AS period_start, h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start AS \"time\", 'Availability' AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_period\nGROUP BY period_start\nORDER BY period_start;",
+          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', d.period_start::timestamptz) AS period_start, d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start AS \"time\", 'Availability' AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_period\nGROUP BY period_start\nORDER BY period_start;",
           "refId": "A"
         }
       ],
@@ -661,7 +661,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 8,
         "w": 12,
         "h": 8
       },
@@ -674,7 +674,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', h.period_hour) AS period_start, h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start AS \"time\", 'SLA Met' AS metric, round(count(*) FILTER (WHERE availability >= ${sla:raw})::numeric / nullif(count(*), 0) * 100, 2)::double precision AS value\nFROM target_period\nGROUP BY period_start\nORDER BY period_start;",
+          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', d.period_start::timestamptz) AS period_start, d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start AS \"time\", 'SLA Met' AS metric, round(count(*) FILTER (WHERE availability >= ${sla:raw})::numeric / nullif(count(*), 0) * 100, 2)::double precision AS value\nFROM target_period\nGROUP BY period_start\nORDER BY period_start;",
           "refId": "A"
         }
       ],
@@ -729,7 +729,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 16,
         "w": 12,
         "h": 8
       },
@@ -742,7 +742,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT date_trunc('${grain:raw}', h.period_hour) AS \"time\", 'Down Target-Minutes' AS metric, sum(h.down_probes)::double precision AS value\nFROM monitoring.db_port_blackbox_hourly_kpi h\nWHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\nGROUP BY 1\nORDER BY 1;",
+          "rawSql": "SELECT date_trunc('${grain:raw}', d.period_start::timestamptz) AS \"time\", 'Down Target-Minutes' AS metric, sum(d.down_probes)::double precision AS value\nFROM monitoring.db_port_blackbox_daily_kpi d\nWHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\nGROUP BY 1\nORDER BY 1;",
           "refId": "A"
         }
       ],
@@ -796,7 +796,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 12,
+        "y": 16,
         "w": 12,
         "h": 8
       },
@@ -809,7 +809,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\n  SELECT date_trunc('${grain:raw}', $__timeFrom()::timestamptz) AS from_at, date_trunc('${grain:raw}', $__timeTo()::timestamptz) AS to_at\n), buckets AS (\n  SELECT generate_series(from_at, to_at, CASE '${grain:raw}' WHEN 'day' THEN interval '1 day' WHEN 'week' THEN interval '1 week' ELSE interval '1 month' END) AS period_start\n  FROM bounds\n), incidents AS (\n  SELECT date_trunc('${grain:raw}', e.down_start) AS period_start, count(*)::double precision AS incident_count\n  FROM monitoring.db_port_blackbox_downtime_events e\n  WHERE $__timeFilter(e.down_start) AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n  GROUP BY 1\n)\nSELECT b.period_start AS \"time\", 'Incidents' AS metric, coalesce(i.incident_count, 0) AS value\nFROM buckets b\nLEFT JOIN incidents i USING (period_start)\nORDER BY b.period_start;",
+          "rawSql": "WITH bounds AS (\n  SELECT date_trunc('${grain:raw}', $__timeFrom()::timestamptz) AS from_at, date_trunc('${grain:raw}', $__timeTo()::timestamptz) AS to_at\n), buckets AS (\n  SELECT generate_series(from_at, to_at, CASE '${grain:raw}' WHEN 'day' THEN interval '1 day' WHEN 'week' THEN interval '1 week' ELSE interval '1 month' END) AS period_start\n  FROM bounds\n), incidents AS (\n  SELECT date_trunc('${grain:raw}', e.down_start) AS period_start, count(*)::double precision AS incident_count\n  FROM monitoring.db_port_blackbox_downtime_events e\n  WHERE e.down_start::date BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n  GROUP BY 1\n)\nSELECT b.period_start AS \"time\", 'Incidents' AS metric, coalesce(i.incident_count, 0) AS value\nFROM buckets b\nLEFT JOIN incidents i USING (period_start)\nORDER BY b.period_start;",
           "refId": "A"
         }
       ],
@@ -863,7 +863,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 32,
         "w": 8,
         "h": 8
       },
@@ -876,7 +876,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, max(h.environment) AS environment, max(h.db_type) AS db_type, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT now() AS \"time\", environment || ' / ' || db_type AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_kpi\nGROUP BY environment, db_type\nORDER BY value ASC, metric;",
+          "rawSql": "WITH target_kpi AS (\n  SELECT d.target_name, max(d.environment) AS environment, max(d.db_type) AS db_type, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n)\nSELECT now() AS \"time\", environment || ' / ' || db_type AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_kpi\nGROUP BY environment, db_type\nORDER BY value ASC, metric;",
           "refId": "A"
         }
       ],
@@ -938,7 +938,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 20,
+        "y": 32,
         "w": 8,
         "h": 8
       },
@@ -951,7 +951,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, coalesce(max(h.criticality), 'unassigned') AS criticality, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n)\nSELECT now() AS \"time\", criticality AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_kpi\nGROUP BY criticality\nORDER BY value ASC, metric;",
+          "rawSql": "WITH target_kpi AS (\n  SELECT d.target_name, coalesce(max(d.criticality), 'unassigned') AS criticality, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n)\nSELECT now() AS \"time\", criticality AS metric, round(avg(availability), 2)::double precision AS value\nFROM target_kpi\nGROUP BY criticality\nORDER BY value ASC, metric;",
           "refId": "A"
         }
       ],
@@ -1013,7 +1013,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 20,
+        "y": 32,
         "w": 8,
         "h": 8
       },
@@ -1026,7 +1026,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n), bottom_targets AS (\n  SELECT target_name, availability FROM target_kpi ORDER BY availability ASC, target_name LIMIT 10\n)\nSELECT now() AS \"time\", target_name AS metric, round(availability, 2)::double precision AS value\nFROM bottom_targets\nORDER BY value ASC, metric;",
+          "rawSql": "WITH target_kpi AS (\n  SELECT d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n), bottom_targets AS (\n  SELECT target_name, availability FROM target_kpi ORDER BY availability ASC, target_name LIMIT 10\n)\nSELECT now() AS \"time\", target_name AS metric, round(availability, 2)::double precision AS value\nFROM bottom_targets\nORDER BY value ASC, metric;",
           "refId": "A"
         }
       ],
@@ -1089,7 +1089,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 40,
         "w": 24,
         "h": 9
       },
@@ -1102,7 +1102,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', h.period_hour) AS period_start, h.target_name, sum(h.probes)::bigint AS observed_minutes, sum(h.up_probes)::bigint AS up_minutes, sum(h.down_probes)::bigint AS down_minutes, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability, sum(h.latency_ms_sum) AS latency_ms_sum, sum(h.latency_ms_count)::bigint AS latency_ms_count\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start, count(*)::bigint AS targets, sum(observed_minutes)::bigint AS observed_target_minutes, sum(up_minutes)::bigint AS up_target_minutes, sum(down_minutes)::bigint AS down_target_minutes, round(avg(availability), 2) AS availability_pct, count(*) FILTER (WHERE availability >= ${sla:raw})::bigint AS targets_meeting_sla, count(*) FILTER (WHERE availability < ${sla:raw})::bigint AS targets_below_sla, round(sum(latency_ms_sum) / nullif(sum(latency_ms_count), 0), 2) AS avg_latency_ms\nFROM target_period\nGROUP BY period_start\nORDER BY period_start DESC;",
+          "rawSql": "WITH target_period AS (\n  SELECT date_trunc('${grain:raw}', d.period_start::timestamptz) AS period_start, d.target_name, sum(d.probes)::bigint AS observed_minutes, sum(d.up_probes)::bigint AS up_minutes, sum(d.down_probes)::bigint AS down_minutes, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability, sum(d.latency_ms_sum) AS latency_ms_sum, sum(d.latency_ms_count)::bigint AS latency_ms_count\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY 1, 2\n)\nSELECT period_start, count(*)::bigint AS targets, sum(observed_minutes)::bigint AS observed_target_minutes, sum(up_minutes)::bigint AS up_target_minutes, sum(down_minutes)::bigint AS down_target_minutes, round(avg(availability), 2) AS availability_pct, count(*) FILTER (WHERE availability >= ${sla:raw})::bigint AS targets_meeting_sla, count(*) FILTER (WHERE availability < ${sla:raw})::bigint AS targets_below_sla, round(sum(latency_ms_sum) / nullif(sum(latency_ms_count), 0), 2) AS avg_latency_ms\nFROM target_period\nGROUP BY period_start\nORDER BY period_start DESC;",
           "refId": "A"
         }
       ],
@@ -1184,7 +1184,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 49,
         "w": 24,
         "h": 12
       },
@@ -1197,7 +1197,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH target_kpi AS (\n  SELECT h.target_name, max(h.environment) AS environment, max(h.db_type) AS db_type, coalesce(max(h.criticality), 'unassigned') AS criticality, coalesce(max(h.team), 'unassigned') AS team, sum(h.probes)::bigint AS observed_minutes, sum(h.up_probes)::bigint AS up_minutes, sum(h.down_probes)::bigint AS down_minutes, sum(h.slow_probes)::bigint AS slow_minutes, sum(h.up_probes)::numeric / nullif(sum(h.probes), 0) * 100 AS availability, sum(h.latency_ms_sum) AS latency_ms_sum, sum(h.latency_ms_count)::bigint AS latency_ms_count, max(h.max_latency_ms) AS max_latency_ms\n  FROM monitoring.db_port_blackbox_hourly_kpi h\n  WHERE $__timeFilter(h.period_hour) AND ('$environment' = '%' OR h.environment = '$environment') AND ('$db_type' = '%' OR h.db_type = '$db_type') AND ('$target' = '%' OR h.target_name = '$target') AND ('$criticality' = '%' OR coalesce(h.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(h.team, 'unassigned') = '$team')\n  GROUP BY h.target_name\n), incidents AS (\n  SELECT e.target_name, count(*)::bigint AS incidents_started\n  FROM monitoring.db_port_blackbox_downtime_events e\n  WHERE $__timeFilter(e.down_start) AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n  GROUP BY e.target_name\n)\nSELECT k.target_name, k.environment, k.db_type, k.criticality, k.team, CASE WHEN latest.is_up = 1 THEN 'UP' WHEN latest.is_up = 0 THEN 'DOWN' ELSE 'UNKNOWN' END AS current_status, k.observed_minutes, k.up_minutes, k.down_minutes, round(k.availability, 2) AS availability_pct, CASE WHEN k.availability >= ${sla:raw} THEN 'MET' ELSE 'BELOW' END AS sla_status, coalesce(i.incidents_started, 0)::bigint AS incidents_started, k.slow_minutes, round(k.latency_ms_sum / nullif(k.latency_ms_count, 0), 2) AS avg_latency_ms, round(k.max_latency_ms, 2) AS max_latency_ms, latest.checked_at AS last_probe_at\nFROM target_kpi k\nLEFT JOIN incidents i USING (target_name)\nLEFT JOIN LATERAL (\n  SELECT r.checked_at, r.is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.target_name = k.target_name\n  ORDER BY r.checked_at DESC\n  LIMIT 1\n) latest ON true\nORDER BY k.availability ASC, k.down_minutes DESC, k.target_name;",
+          "rawSql": "WITH target_kpi AS (\n  SELECT d.target_name, max(d.environment) AS environment, max(d.db_type) AS db_type, coalesce(max(d.criticality), 'unassigned') AS criticality, coalesce(max(d.team), 'unassigned') AS team, sum(d.probes)::bigint AS observed_minutes, sum(d.up_probes)::bigint AS up_minutes, sum(d.down_probes)::bigint AS down_minutes, sum(d.slow_probes)::bigint AS slow_minutes, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability, sum(d.latency_ms_sum) AS latency_ms_sum, sum(d.latency_ms_count)::bigint AS latency_ms_count, max(d.max_latency_ms) AS max_latency_ms\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n), incidents AS (\n  SELECT e.target_name, count(*)::bigint AS incidents_started\n  FROM monitoring.db_port_blackbox_downtime_events e\n  WHERE e.down_start::date BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n  GROUP BY e.target_name\n)\nSELECT k.target_name, k.environment, k.db_type, k.criticality, k.team, CASE WHEN latest.is_up = 1 THEN 'UP' WHEN latest.is_up = 0 THEN 'DOWN' ELSE 'UNKNOWN' END AS current_status, k.observed_minutes, k.up_minutes, k.down_minutes, round(k.availability, 2) AS availability_pct, CASE WHEN k.availability >= ${sla:raw} THEN 'MET' ELSE 'BELOW' END AS sla_status, coalesce(i.incidents_started, 0)::bigint AS incidents_started, k.slow_minutes, round(k.latency_ms_sum / nullif(k.latency_ms_count, 0), 2) AS avg_latency_ms, round(k.max_latency_ms, 2) AS max_latency_ms, latest.checked_at AS last_probe_at\nFROM target_kpi k\nLEFT JOIN incidents i USING (target_name)\nLEFT JOIN LATERAL (\n  SELECT r.checked_at, r.is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.target_name = k.target_name\n  ORDER BY r.checked_at DESC\n  LIMIT 1\n) latest ON true\nORDER BY k.availability ASC, k.down_minutes DESC, k.target_name;",
           "refId": "A"
         }
       ],
@@ -1295,7 +1295,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 49,
+        "y": 61,
         "w": 24,
         "h": 11
       },
@@ -1378,6 +1378,484 @@
         },
         "showHeader": true
       }
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "Availability YoY",
+      "description": "Availability difference in percentage points between the selected range and the same calendar dates one year earlier.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::date AS from_date, $__timeTo()::date AS to_date\n), target_window AS (\n  SELECT 'current' AS report_window, d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN b.from_date AND b.to_date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n  UNION ALL\n  SELECT 'previous_year', d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN (b.from_date - interval '1 year')::date AND (b.to_date - interval '1 year')::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY d.target_name\n), summary AS (\n  SELECT report_window, avg(availability) AS availability FROM target_window GROUP BY report_window\n)\nSELECT round((max(availability) FILTER (WHERE report_window = 'current') - max(availability) FILTER (WHERE report_window = 'previous_year'))::numeric, 2)::double precision AS availability_yoy_pp\nFROM summary;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Downtime YoY",
+      "description": "Change in failed target-minutes versus the same calendar dates one year earlier. A negative value is an improvement.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::date AS from_date, $__timeTo()::date AS to_date\n), summary AS (\n  SELECT 'current' AS report_window, sum(d.down_probes)::numeric AS down_target_minutes\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN b.from_date AND b.to_date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  UNION ALL\n  SELECT 'previous_year', sum(d.down_probes)::numeric\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN (b.from_date - interval '1 year')::date AND (b.to_date - interval '1 year')::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n)\nSELECT (max(down_target_minutes) FILTER (WHERE report_window = 'current') - max(down_target_minutes) FILTER (WHERE report_window = 'previous_year'))::double precision AS downtime_yoy_target_minutes\nFROM summary;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Incidents YoY",
+      "description": "Change in downtime incidents started versus the same calendar dates one year earlier. A negative value is an improvement.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::date AS from_date, $__timeTo()::date AS to_date\n), prior_data AS (\n  SELECT count(*) > 0 AS available\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN (b.from_date - interval '1 year')::date AND (b.to_date - interval '1 year')::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n), incidents AS (\n  SELECT count(*) FILTER (WHERE e.down_start::date BETWEEN b.from_date AND b.to_date)::bigint AS current_incidents, count(*) FILTER (WHERE e.down_start::date BETWEEN (b.from_date - interval '1 year')::date AND (b.to_date - interval '1 year')::date)::bigint AS previous_incidents\n  FROM monitoring.db_port_blackbox_downtime_events e CROSS JOIN bounds b\n  WHERE ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n)\nSELECT CASE WHEN p.available THEN (i.current_incidents - i.previous_incidents)::double precision END AS incidents_yoy\nFROM incidents i CROSS JOIN prior_data p;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Error Budget Used",
+      "description": "Share of the selected SLA downtime allowance already consumed. Values above 100 percent mean the error budget has been exceeded.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(d.down_probes)::numeric / nullif(sum(d.probes)::numeric * (1 - ${sla:raw} / 100.0), 0) * 100, 2)::double precision AS error_budget_used_pct\nFROM monitoring.db_port_blackbox_daily_kpi d\nWHERE d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team');",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Availability: Current vs Previous Year",
+      "description": "Previous-year observations are shifted forward one calendar year so equivalent dates align with the selected reporting window.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::date AS from_date, $__timeTo()::date AS to_date\n), target_period AS (\n  SELECT 'Current' AS metric, date_trunc('${grain:raw}', d.period_start::timestamptz) AS period_start, d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN b.from_date AND b.to_date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY 2, 3\n  UNION ALL\n  SELECT 'Previous Year', date_trunc('${grain:raw}', (d.period_start + interval '1 year')::timestamptz), d.target_name, sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN (b.from_date - interval '1 year')::date AND (b.to_date - interval '1 year')::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  GROUP BY 2, 3\n)\nSELECT period_start AS \"time\", metric, round(avg(availability), 2)::double precision AS value\nFROM target_period\nGROUP BY period_start, metric\nORDER BY period_start, metric;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 24,
+      "type": "table",
+      "title": "Executive YoY Comparison",
+      "description": "Export-ready comparison of the selected range against the same calendar dates one year earlier. Missing prior-year data remains empty.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::date AS from_date, $__timeTo()::date AS to_date\n), daily_window AS (\n  SELECT 'current' AS report_window, d.*\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN b.from_date AND b.to_date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n  UNION ALL\n  SELECT 'previous_year', d.*\n  FROM monitoring.db_port_blackbox_daily_kpi d CROSS JOIN bounds b\n  WHERE d.period_start BETWEEN (b.from_date - interval '1 year')::date AND (b.to_date - interval '1 year')::date AND ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n), target_kpi AS (\n  SELECT report_window, target_name, sum(up_probes)::numeric / nullif(sum(probes), 0) * 100 AS availability\n  FROM daily_window GROUP BY report_window, target_name\n), target_summary AS (\n  SELECT report_window, count(*)::numeric AS targets, avg(availability) AS availability_pct, count(*) FILTER (WHERE availability >= ${sla:raw})::numeric / nullif(count(*), 0) * 100 AS sla_met_pct\n  FROM target_kpi GROUP BY report_window\n), daily_summary AS (\n  SELECT report_window, sum(down_probes)::numeric AS down_target_minutes, sum(latency_ms_sum) / nullif(sum(latency_ms_count), 0) AS avg_latency_ms\n  FROM daily_window GROUP BY report_window\n), event_window AS (\n  SELECT 'current' AS report_window, e.down_start, e.down_end\n  FROM monitoring.db_port_blackbox_downtime_events e CROSS JOIN bounds b\n  WHERE e.down_start::date BETWEEN b.from_date AND b.to_date AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n  UNION ALL\n  SELECT 'previous_year', e.down_start, e.down_end\n  FROM monitoring.db_port_blackbox_downtime_events e CROSS JOIN bounds b\n  WHERE e.down_start::date BETWEEN (b.from_date - interval '1 year')::date AND (b.to_date - interval '1 year')::date AND ('$environment' = '%' OR e.environment = '$environment') AND ('$db_type' = '%' OR e.db_type = '$db_type') AND ('$target' = '%' OR e.target_name = '$target') AND ('$criticality' = '%' OR coalesce(e.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(e.team, 'unassigned') = '$team')\n), event_summary AS (\n  SELECT report_window, count(*)::numeric AS incidents, avg(extract(epoch FROM down_end - down_start) / 60.0) FILTER (WHERE down_end IS NOT NULL) AS mttr_minutes\n  FROM event_window GROUP BY report_window\n), summary AS (\n  SELECT w.report_window, t.targets, t.availability_pct, t.sla_met_pct, d.down_target_minutes, d.avg_latency_ms, CASE WHEN t.targets IS NULL THEN NULL ELSE coalesce(e.incidents, 0) END AS incidents, e.mttr_minutes\n  FROM (VALUES ('current'), ('previous_year')) AS w(report_window)\n  LEFT JOIN target_summary t USING (report_window)\n  LEFT JOIN daily_summary d USING (report_window)\n  LEFT JOIN event_summary e USING (report_window)\n), comparison AS (\n  SELECT c.*, p.targets AS previous_targets, p.availability_pct AS previous_availability_pct, p.sla_met_pct AS previous_sla_met_pct, p.down_target_minutes AS previous_down_target_minutes, p.avg_latency_ms AS previous_avg_latency_ms, p.incidents AS previous_incidents, p.mttr_minutes AS previous_mttr_minutes\n  FROM summary c CROSS JOIN summary p\n  WHERE c.report_window = 'current' AND p.report_window = 'previous_year'\n)\nSELECT metric, round(current_value, 2) AS current_value, round(previous_value, 2) AS previous_year_value, round(current_value - previous_value, 2) AS delta, delta_unit\nFROM (\n  SELECT 1 AS sort_order, 'Targets' AS metric, targets AS current_value, previous_targets AS previous_value, 'count' AS delta_unit FROM comparison\n  UNION ALL SELECT 2, 'Availability', availability_pct, previous_availability_pct, 'percentage points' FROM comparison\n  UNION ALL SELECT 3, 'SLA Met', sla_met_pct, previous_sla_met_pct, 'percentage points' FROM comparison\n  UNION ALL SELECT 4, 'Down Target-Minutes', down_target_minutes, previous_down_target_minutes, 'target-minutes' FROM comparison\n  UNION ALL SELECT 5, 'Incidents Started', incidents, previous_incidents, 'count' FROM comparison\n  UNION ALL SELECT 6, 'MTTR Closed', mttr_minutes, previous_mttr_minutes, 'minutes' FROM comparison\n  UNION ALL SELECT 7, 'Average Latency', avg_latency_ms, previous_avg_latency_ms, 'milliseconds' FROM comparison\n) metrics\nORDER BY sort_order;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(current_value|previous_year_value|delta)$/"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
+    },
+    {
+      "id": 25,
+      "type": "table",
+      "title": "Reporting History Coverage",
+      "description": "Shows the retained reporting horizon and whether data exists for the selected range's previous-year comparison.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 72,
+        "w": 24,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT $__timeFrom()::date AS from_date, $__timeTo()::date AS to_date\n), scoped_history AS (\n  SELECT d.*\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  WHERE ('$environment' = '%' OR d.environment = '$environment') AND ('$db_type' = '%' OR d.db_type = '$db_type') AND ('$target' = '%' OR d.target_name = '$target') AND ('$criticality' = '%' OR coalesce(d.criticality, 'unassigned') = '$criticality') AND ('$team' = '%' OR coalesce(d.team, 'unassigned') = '$team')\n)\nSELECT min(period_start) AS history_start, max(period_start) AS history_end, max(last_probe_at) AS latest_probe_at, (max(period_start) - min(period_start) + 1)::bigint AS history_calendar_days, count(DISTINCT target_name)::bigint AS targets_in_history, coalesce(sum(probes) FILTER (WHERE period_start BETWEEN b.from_date AND b.to_date), 0)::bigint AS selected_observed_target_minutes, CASE WHEN count(*) FILTER (WHERE period_start BETWEEN (b.from_date - interval '1 year')::date AND (b.to_date - interval '1 year')::date) > 0 THEN 'AVAILABLE' ELSE 'NOT AVAILABLE' END AS previous_year_data\nFROM scoped_history CROSS JOIN bounds b\nGROUP BY b.from_date, b.to_date;",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      }
     }
   ],
   "refresh": "5m",
@@ -1437,6 +1915,16 @@
         "name": "sla",
         "options": [
           {
+            "selected": false,
+            "text": "99.99%",
+            "value": "99.99"
+          },
+          {
+            "selected": false,
+            "text": "99.95%",
+            "value": "99.95"
+          },
+          {
             "selected": true,
             "text": "99.90%",
             "value": "99.9"
@@ -1457,7 +1945,7 @@
             "value": "95.0"
           }
         ],
-        "query": "99.90% : 99.9,99.50% : 99.5,99.00% : 99.0,95.00% : 95.0",
+        "query": "99.99% : 99.99,99.95% : 99.95,99.90% : 99.9,99.50% : 99.5,99.00% : 99.0,95.00% : 95.0",
         "skipUrlSync": false,
         "type": "custom"
       },
@@ -1471,7 +1959,7 @@
           "type": "postgres",
           "uid": "grafana-postgresql-datasource"
         },
-        "definition": "SELECT DISTINCT environment AS __text, environment AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) ORDER BY 1;",
+        "definition": "SELECT DISTINCT environment AS __text, environment AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date ORDER BY 1;",
         "hide": 0,
         "includeAll": true,
         "allValue": "%",
@@ -1479,7 +1967,7 @@
         "multi": false,
         "name": "environment",
         "options": [],
-        "query": "SELECT DISTINCT environment AS __text, environment AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) ORDER BY 1;",
+        "query": "SELECT DISTINCT environment AS __text, environment AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date ORDER BY 1;",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -1496,7 +1984,7 @@
           "type": "postgres",
           "uid": "grafana-postgresql-datasource"
         },
-        "definition": "SELECT DISTINCT db_type AS __text, db_type AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') ORDER BY 1;",
+        "definition": "SELECT DISTINCT db_type AS __text, db_type AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR environment = '$environment') ORDER BY 1;",
         "hide": 0,
         "includeAll": true,
         "allValue": "%",
@@ -1504,7 +1992,7 @@
         "multi": false,
         "name": "db_type",
         "options": [],
-        "query": "SELECT DISTINCT db_type AS __text, db_type AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') ORDER BY 1;",
+        "query": "SELECT DISTINCT db_type AS __text, db_type AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR environment = '$environment') ORDER BY 1;",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -1521,7 +2009,7 @@
           "type": "postgres",
           "uid": "grafana-postgresql-datasource"
         },
-        "definition": "SELECT DISTINCT target_name AS __text, target_name AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') ORDER BY 1;",
+        "definition": "SELECT DISTINCT target_name AS __text, target_name AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') ORDER BY 1;",
         "hide": 0,
         "includeAll": true,
         "allValue": "%",
@@ -1529,7 +2017,7 @@
         "multi": false,
         "name": "target",
         "options": [],
-        "query": "SELECT DISTINCT target_name AS __text, target_name AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') ORDER BY 1;",
+        "query": "SELECT DISTINCT target_name AS __text, target_name AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') ORDER BY 1;",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -1546,7 +2034,7 @@
           "type": "postgres",
           "uid": "grafana-postgresql-datasource"
         },
-        "definition": "SELECT DISTINCT coalesce(criticality, 'unassigned') AS __text, coalesce(criticality, 'unassigned') AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') ORDER BY 1;",
+        "definition": "SELECT DISTINCT coalesce(criticality, 'unassigned') AS __text, coalesce(criticality, 'unassigned') AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') ORDER BY 1;",
         "hide": 0,
         "includeAll": true,
         "allValue": "%",
@@ -1554,7 +2042,7 @@
         "multi": false,
         "name": "criticality",
         "options": [],
-        "query": "SELECT DISTINCT coalesce(criticality, 'unassigned') AS __text, coalesce(criticality, 'unassigned') AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') ORDER BY 1;",
+        "query": "SELECT DISTINCT coalesce(criticality, 'unassigned') AS __text, coalesce(criticality, 'unassigned') AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') ORDER BY 1;",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -1571,7 +2059,7 @@
           "type": "postgres",
           "uid": "grafana-postgresql-datasource"
         },
-        "definition": "SELECT DISTINCT coalesce(team, 'unassigned') AS __text, coalesce(team, 'unassigned') AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') AND ('$criticality' = '%' OR coalesce(criticality, 'unassigned') = '$criticality') ORDER BY 1;",
+        "definition": "SELECT DISTINCT coalesce(team, 'unassigned') AS __text, coalesce(team, 'unassigned') AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') AND ('$criticality' = '%' OR coalesce(criticality, 'unassigned') = '$criticality') ORDER BY 1;",
         "hide": 0,
         "includeAll": true,
         "allValue": "%",
@@ -1579,7 +2067,7 @@
         "multi": false,
         "name": "team",
         "options": [],
-        "query": "SELECT DISTINCT coalesce(team, 'unassigned') AS __text, coalesce(team, 'unassigned') AS __value FROM monitoring.db_port_blackbox_hourly_kpi WHERE $__timeFilter(period_hour) AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') AND ('$criticality' = '%' OR coalesce(criticality, 'unassigned') = '$criticality') ORDER BY 1;",
+        "query": "SELECT DISTINCT coalesce(team, 'unassigned') AS __text, coalesce(team, 'unassigned') AS __value FROM monitoring.db_port_blackbox_daily_kpi WHERE period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date AND ('$environment' = '%' OR environment = '$environment') AND ('$db_type' = '%' OR db_type = '$db_type') AND ('$target' = '%' OR target_name = '$target') AND ('$criticality' = '%' OR coalesce(criticality, 'unassigned') = '$criticality') ORDER BY 1;",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -1604,6 +2092,6 @@
   "timezone": "browser",
   "title": "DB Port KPI Executive Reporting - SQL",
   "uid": "db-port-kpi-executive-reporting-sql",
-  "version": 1,
+  "version": 2,
   "weekStart": "monday"
 }

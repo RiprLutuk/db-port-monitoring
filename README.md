@@ -129,11 +129,12 @@ Dashboard overview berisi ringkasan global, DOWN by env/db type, latency group, 
 
 Dashboard target detail berisi satu target per view, timeline UP/DOWN, latency, status change, dan down samples pada selected range.
 
-Dashboard SQL availability membaca data dari PostgreSQL untuk kebutuhan KPI dan reporting jangka panjang. Panel real-time memakai raw probe data 30 hari, sedangkan panel YTD/monthly memakai aggregate harian 400 hari.
+Dashboard SQL availability membaca data dari PostgreSQL untuk kebutuhan KPI dan reporting jangka panjang. Panel real-time memakai raw probe data 30 hari, panel operasional memakai aggregate per jam 400 hari, sedangkan panel YTD/monthly memakai aggregate harian enam tahun.
 
 Dashboard SQL juga memakai tabel summary-detail jangka panjang untuk tetap bisa menjawab kapan target down tanpa menyimpan raw per menit selama ratusan hari:
 
 - `monitoring.db_port_blackbox_hourly_kpi`
+- `monitoring.db_port_blackbox_daily_kpi`
 - `monitoring.db_port_blackbox_status_events`
 - `monitoring.db_port_blackbox_downtime_events`
 - `monitoring.db_port_blackbox_latency_events`
@@ -141,7 +142,9 @@ Dashboard SQL juga memakai tabel summary-detail jangka panjang untuk tetap bisa 
 
 Dashboard SQL ingest verification dipakai untuk memastikan stream Prometheus sudah masuk PostgreSQL tanpa target missing, ingest lag tinggi, backlog backfill, writer failure, atau drift antara raw data dan aggregate KPI.
 
-Dashboard KPI executive reporting menyediakan pilihan periode harian, mingguan, atau bulanan; SLA threshold; filter environment, DB type, target, criticality, dan team; executive KPI; tren; breakdown; serta tabel periode, target, dan downtime incident yang dapat diekspor untuk reporting. KPI historisnya memakai agregat per jam yang disimpan 400 hari, sedangkan detail incident tetap tersedia dari tabel event meskipun raw sample sudah melewati retensi 30 hari.
+Dashboard KPI executive reporting menyediakan pilihan periode harian, mingguan, atau bulanan; SLA threshold; filter environment, DB type, target, criticality, dan team; executive KPI; tren; breakdown; serta tabel periode, target, dan downtime incident yang dapat diekspor untuk reporting. Dashboard memakai aggregate harian dan event enam tahun agar mendukung YoY, error-budget tracking, current-vs-previous-year comparison, dan histori reporting tanpa menyimpan raw bertahun-tahun. Panel `Reporting History Coverage` menunjukkan apakah data previous year memang tersedia.
+
+Availability pada dashboard adalah gross technical availability dari TCP probe. Planned maintenance belum dikecualikan karena project belum memiliki sumber maintenance window yang authoritative; angka ini tidak boleh disebut contractual SLA sebelum aturan maintenance dan business exclusion disepakati.
 
 ## PromQL Utama
 
@@ -197,7 +200,8 @@ PostgreSQL retention:
 
 ```text
 Raw probe data: 30d
-Hourly/Daily KPI and events: 400d
+Hourly KPI: 400d
+Daily KPI and events: 2192d (sekitar 6 tahun)
 ```
 
 Raw Blackbox probe data disimpan di:
@@ -231,7 +235,17 @@ monitoring.db_port_blackbox_downtime_event_history
 monitoring.db_port_blackbox_latency_event_history
 ```
 
-Writer berjalan setiap 1 menit, menghapus raw row yang lebih tua dari `BLACKBOX_RAW_RETENTION_DAYS`, dan mempertahankan KPI/event summary sesuai `BLACKBOX_KPI_RETENTION_DAYS`.
+Writer berjalan setiap 1 menit dan menerapkan retention bertingkat:
+
+```text
+BLACKBOX_RAW_RETENTION_DAYS=30
+BLACKBOX_HOURLY_RETENTION_DAYS=400
+BLACKBOX_REPORT_RETENTION_DAYS=2192
+```
+
+Daily KPI hanya menghasilkan satu row per target per hari. Dengan 77 target, enam tahun membutuhkan sekitar 168.784 row daily KPI, jauh lebih hemat daripada menyimpan lebih dari 200 juta raw row per menit. Status, downtime, latency event, dan daily error summary mengikuti report retention agar tanggal, jam, durasi, dan penyebab incident tetap dapat dianalisis. Event yang masih terbuka tidak dihapus oleh cleanup retention.
+
+Retention baru hanya menjaga data sejak data tersebut mulai dikumpulkan. Data yang sudah tidak tersedia di PostgreSQL, Prometheus, atau backup tidak dapat dibuat ulang; karena itu panel YoY akan kosong sampai periode pembanding tahun sebelumnya benar-benar tersedia.
 
 Pengaturan recovery writer:
 
