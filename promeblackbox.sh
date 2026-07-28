@@ -33,7 +33,9 @@ Commands:
   probe [host:port]         Run one Blackbox TCP probe
   query                     Query probe_success from Prometheus
   pg-schema                 Run PostgreSQL schema migration
-  normalize-kpi-1m          Backup and normalize reconstructable KPI history to one-minute weight
+  normalize-environment     Normalize legacy QA/UAT rows to DEV
+  normalize-5m              Normalize existing raw history and KPI to 5-minute buckets
+  cleanup-unused            Drop tables not used by the KPI dashboard
   writer-start              Recreate/start writer only
   writer-stop               Stop writer only
   writer-restart            Restart writer only
@@ -82,7 +84,7 @@ case "$cmd" in
     ;;
 
   build-writer)
-    docker build -t blackbox-pg-writer:latest -f Dockerfile.writer .
+    DOCKER_BUILDKIT=0 docker build -t blackbox-pg-writer:latest -f Dockerfile.writer .
     ;;
 
   validate)
@@ -125,14 +127,30 @@ case "$cmd" in
       blackbox-pg-writer -f /workspace/sql/001_blackbox_pg_schema.sql
     ;;
 
-  normalize-kpi-1m)
+  normalize-environment)
+    compose run --rm --no-deps \
+      --entrypoint /workspace/scripts/run-psql.sh \
+      blackbox-pg-writer -f /workspace/sql/004_normalize_environment.sql
+    ;;
+
+  normalize-5m)
     if compose ps --status running --services | grep -qx 'blackbox-pg-writer'; then
-      echo "Stop blackbox-pg-writer before normalizing KPI." >&2
+      echo "Stop blackbox-pg-writer before normalizing historical data." >&2
       exit 1
     fi
     compose run --rm --no-deps \
       --entrypoint /workspace/scripts/run-psql.sh \
-      blackbox-pg-writer -f /workspace/sql/003_normalize_kpi_to_one_minute.sql
+      blackbox-pg-writer -f /workspace/sql/006_normalize_history_to_five_minutes.sql
+    ;;
+
+  cleanup-unused)
+    if compose ps --status running --services | grep -qx 'blackbox-pg-writer'; then
+      echo "Stop blackbox-pg-writer before dropping unused KPI tables." >&2
+      exit 1
+    fi
+    compose run --rm --no-deps \
+      --entrypoint /workspace/scripts/run-psql.sh \
+      blackbox-pg-writer -f /workspace/sql/005_kpi_only_cleanup.sql
     ;;
 
   writer-start)

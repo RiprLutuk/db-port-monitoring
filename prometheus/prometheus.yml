@@ -1,5 +1,5 @@
 global:
-  scrape_interval: 1m
+  scrape_interval: 5m
   scrape_timeout: 8s
   evaluation_interval: 30s
 

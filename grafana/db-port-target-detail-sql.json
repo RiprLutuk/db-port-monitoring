@@ -1288,7 +1288,7 @@
       }
     }
   ],
-  "refresh": "1m",
+  "refresh": "5m",
   "schemaVersion": 41,
   "tags": [
     "database",
@@ -1383,8 +1383,6 @@
   },
   "timepicker": {
     "refresh_intervals": [
-      "30s",
-      "1m",
       "5m",
       "15m",
       "30m",
@@ -1394,6 +1392,6 @@
   "timezone": "browser",
   "title": "DB Port Target Detail - SQL",
   "uid": "db-port-target-detail-sql",
-  "version": 5,
+  "version": 6,
   "weekStart": ""
 }

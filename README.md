@@ -3,9 +3,12 @@
 Project ini memonitor availability port database dengan TCP probe:
 
 - Blackbox Exporter melakukan connect ke `host:port`.
-- Prometheus scrape hasil probe setiap 1 menit.
+- Prometheus scrape hasil probe setiap 5 menit.
 - Grafana membaca metric dari Prometheus.
 - Tidak ada credential database target yang disimpan atau dipakai.
+
+Panduan sistem dan jawaban singkat untuk meeting tersedia di
+`docs/DB-PORT-MONITORING-FAQ.md`.
 
 ## Service
 
@@ -31,7 +34,7 @@ http://prometheus:9090
 Semua operasional project ini memakai shell script utama:
 
 ```bash
-cd db-port-monitoring
+cd promeblackbox
 ./promeblackbox.sh validate
 ./promeblackbox.sh start
 ./promeblackbox.sh status
@@ -57,9 +60,27 @@ Schema migration/backfill dijalankan manual saat ada perubahan SQL:
 ```bash
 ./promeblackbox.sh build-writer
 ./promeblackbox.sh pg-schema
+./promeblackbox.sh normalize-environment
 ./promeblackbox.sh writer-start
 ./promeblackbox.sh reload
 ```
+
+`normalize-environment` hanya mengubah nilai dimension `environment` lama dari
+`qa`/`uat` menjadi `dev`; nama target dan `db_name` tidak diubah. Writer juga
+menormalisasi metric baru sebelum insert sebagai pengaman.
+
+Histori yang pernah dikumpulkan dengan cadence 10 detik atau 1 menit dinormalisasi
+satu kali menjadi satu observasi per target per bucket 5 menit:
+
+```bash
+./promeblackbox.sh build-writer
+./promeblackbox.sh writer-stop
+./promeblackbox.sh normalize-5m
+./promeblackbox.sh writer-start
+```
+
+Migration menolak berjalan bila writer masih aktif. Jika satu bucket memiliki probe
+UP dan DOWN, bucket disimpan sebagai DOWN agar kegagalan lama tidak hilang.
 
 File `.env` berisi credential dan harus memakai permission `600`.
 Koneksi PostgreSQL memakai `PGCONNECT_TIMEOUT=10` agar kegagalan jaringan cepat masuk ke health metric dan alert writer.
@@ -87,18 +108,24 @@ Label standar per target:
 - `env`
 - `team`
 - `criticality`
+- `monitoring_excluded` (opsional, `true` untuk tidak dihitung/ditampilkan)
 
-Untuk tambah target, edit `prometheus/targets/db-targets.yml`, lalu reload Prometheus:
+Target dengan `monitoring_excluded: "true"` tetap di-scrape dan tetap masuk raw serta
+daily KPI PostgreSQL. Flag ini hanya mengecualikan target dari perhitungan KPI,
+tampilan/variable dashboard, dan alert per-target. Exclusion aktif saat ini:
+`bmgcp-011-qa` dan `bmjkt-000197`.
+
+Untuk tambah target, edit `prometheus/targets/db-targets.yml`. Folder target di-bind
+mount dan Prometheus file discovery refresh setiap 60 detik, sehingga perubahan
+target tidak memerlukan rebuild image atau restart container. Tunggu sekitar 1-2
+menit, lalu cek:
 
 ```bash
-./promeblackbox.sh reload
+./promeblackbox.sh targets
 ```
 
-Jika reload gagal karena Prometheus belum running, jalankan:
-
-```bash
-./promeblackbox.sh restart
-```
+`./promeblackbox.sh reload` terutama diperlukan jika mengubah `prometheus.yml` atau
+alert rules, bukan untuk perubahan target biasa.
 
 ## Grafana Datasource
 
@@ -116,33 +143,31 @@ grafana/provisioning/datasources/prometheus-datasource.yml
 
 ## Grafana Dashboard
 
-Import dashboard JSON berikut:
+Dashboard aktif yang dipakai adalah:
 
-- `grafana/db-port-availability-overview-prometheus.json`
-- `grafana/db-port-target-detail-prometheus.json`
-- `grafana/db-port-availability-overview-sql.json`
-- `grafana/db-port-target-detail-sql.json`
-- `grafana/db-port-blackbox-sql-ingest-verification.json`
-- `grafana/db-port-kpi-executive-reporting-sql.json`
+```text
+grafana/db-port-kpi-executive-reporting-sql.json
+```
 
-Dashboard overview berisi ringkasan global, DOWN by env/db type, latency group, dan tabel status target.
+Dashboard ini memiliki tujuh panel ringkas: total target, port UP, port DOWN, current
+availability, KPI availability sesuai time picker, enam target dengan availability
+terendah, dan card status port terbaru. Card status hanya menampilkan UP/DOWN.
+Target berlabel `monitoring_excluded=true` tidak ikut seluruh panel dan filter tersebut.
 
-Dashboard target detail berisi satu target per view, timeline UP/DOWN, latency, status change, dan down samples pada selected range.
+File dashboard Prometheus/SQL lain yang masih ada di folder `grafana/` dipertahankan
+sebagai arsip/referensi dan tidak termasuk jalur operasional KPI. File tersebut dapat
+merujuk objek legacy yang sudah dihapus dari PostgreSQL.
 
-Dashboard SQL availability membaca data dari PostgreSQL untuk kebutuhan KPI dan reporting jangka panjang. Panel real-time memakai raw probe data 30 hari, panel operasional memakai aggregate per jam 400 hari, sedangkan panel YTD/monthly memakai aggregate harian enam tahun.
+Status terbaru dibaca dari `monitoring.probe_current_status` melalui indexed lookup
+per target. KPI historis membaca `monitoring.db_port_blackbox_daily_kpi` berdasarkan
+rentang waktu Grafana. View kompatibilitas `monitoring.probe_history` dan
+`monitoring.probe_availability_30d` tetap tersedia, tidak menyimpan salinan data, dan
+tidak menggantikan tabel retention internal.
 
-Dashboard SQL juga memakai tabel summary-detail jangka panjang untuk tetap bisa menjawab kapan target down tanpa menyimpan raw per menit selama ratusan hari:
-
-- `monitoring.db_port_blackbox_hourly_kpi`
-- `monitoring.db_port_blackbox_daily_kpi`
-- `monitoring.db_port_blackbox_status_events`
-- `monitoring.db_port_blackbox_downtime_events`
-- `monitoring.db_port_blackbox_latency_events`
-- `monitoring.db_port_blackbox_daily_error_summary`
-
-Dashboard SQL ingest verification dipakai untuk memastikan stream Prometheus sudah masuk PostgreSQL tanpa target missing, ingest lag tinggi, backlog backfill, writer failure, atau drift antara raw data dan aggregate KPI.
-
-Dashboard KPI executive reporting menyediakan pilihan periode harian, mingguan, atau bulanan; SLA threshold; filter environment, DB type, target, criticality, dan team; executive KPI; tren; breakdown; serta tabel periode, target, dan downtime incident yang dapat diekspor untuk reporting. Dashboard memakai aggregate harian dan event enam tahun agar mendukung YoY, error-budget tracking, current-vs-previous-year comparison, dan histori reporting tanpa menyimpan raw bertahun-tahun. Panel `Reporting History Coverage` menunjukkan apakah data previous year memang tersedia.
+Pada dashboard KPI, pilihan Environment disederhanakan menjadi `dev` dan `prod`.
+`qa`, `uat`, dan `development` dinormalisasi menjadi `dev` di konfigurasi/ingest,
+dan histori lama di PostgreSQL sudah dimigrasikan. Nama database boleh tetap
+mengandung teks `qa` atau `uat`; yang menentukan filter adalah label `environment`.
 
 Availability pada dashboard adalah gross technical availability dari TCP probe. Planned maintenance belum dikecualikan karena project belum memiliki sumber maintenance window yang authoritative; angka ini tidak boleh disebut contractual SLA sebelum aturan maintenance dan business exclusion disepakati.
 
@@ -168,14 +193,14 @@ prometheus/alert-rules.yml
 
 Rule:
 
-- `DBPortDown`: `probe_success == 0 for 3m`
-- `DBPortProbeSlow`: successful probe dengan latency lebih dari 3 detik selama 5 menit
-- `DBPortProbeScrapeFailed`: Prometheus gagal scrape target selama 2 menit
-- `DBPortMetricsMissing`: seluruh metric probe hilang
+- `DBPortDown`: `probe_success == 0 for 10m`
+- `DBPortProbeSlow`: successful probe dengan latency lebih dari 3 detik selama 10 menit
+- `DBPortProbeScrapeFailed`: Prometheus gagal scrape target selama 10 menit
+- `DBPortMetricsMissing`: seluruh metric probe hilang selama lebih dari 10 menit
 - `BlackboxPGWriterDown`: endpoint health writer tidak dapat di-scrape
 - `BlackboxPGWriterCycleFailed`: siklus insert PostgreSQL gagal
-- `BlackboxPGWriterIngestStale`: tidak ada ingest sukses selama lebih dari 180 detik
-- `BlackboxPGWriterBackfillBehind`: backlog writer lebih dari 5 menit
+- `BlackboxPGWriterIngestStale`: tidak ada ingest sukses selama lebih dari 600 detik
+- `BlackboxPGWriterBackfillBehind`: backlog writer lebih dari 10 menit
 
 Rule Prometheus sudah mendeteksi kondisi tersebut. Pengiriman notifikasi ke email, Slack, atau webhook tetap membutuhkan receiver Alertmanager yang sesuai dengan channel operasional perusahaan.
 
@@ -200,8 +225,7 @@ PostgreSQL retention:
 
 ```text
 Raw probe data: 30d
-Hourly KPI: 400d
-Daily KPI and events: 2192d (sekitar 6 tahun)
+Daily KPI: 2192d (sekitar 6 tahun)
 ```
 
 Raw Blackbox probe data disimpan di:
@@ -216,34 +240,33 @@ Daily KPI aggregate disimpan di:
 monitoring.db_port_blackbox_daily_kpi
 ```
 
-Downtime/status/latency event history disimpan di:
+View yang dipakai dashboard:
 
 ```text
-monitoring.db_port_blackbox_downtime_events
-monitoring.db_port_blackbox_status_events
-monitoring.db_port_blackbox_latency_events
-```
-
-View reporting:
-
-```text
-monitoring.db_port_blackbox_hourly_availability
 monitoring.db_port_blackbox_daily_availability
 monitoring.db_port_blackbox_monthly_availability
 monitoring.db_port_blackbox_yearly_availability
-monitoring.db_port_blackbox_downtime_event_history
-monitoring.db_port_blackbox_latency_event_history
+monitoring.probe_current_status
+monitoring.probe_availability_30d
 ```
 
-Writer berjalan setiap 1 menit dan menerapkan retention bertingkat:
+Writer berjalan setiap 5 menit dan menerapkan retention bertingkat:
 
 ```text
 BLACKBOX_RAW_RETENTION_DAYS=30
-BLACKBOX_HOURLY_RETENTION_DAYS=400
 BLACKBOX_REPORT_RETENTION_DAYS=2192
 ```
 
-Daily KPI hanya menghasilkan satu row per target per hari. Dengan 77 target, enam tahun membutuhkan sekitar 168.784 row daily KPI, jauh lebih hemat daripada menyimpan lebih dari 200 juta raw row per menit. Status, downtime, latency event, dan daily error summary mengikuti report retention agar tanggal, jam, durasi, dan penyebab incident tetap dapat dianalisis. Event yang masih terbuka tidak dihapus oleh cleanup retention.
+Daily KPI hanya menghasilkan satu row per target per hari. Untuk `N` target, raw
+cadence 5 menit menghasilkan sekitar `N x 288` row per hari, sedangkan daily KPI
+hanya `N` row per hari. Tiga tabel inti yang aktif adalah inventory target, raw probe,
+dan daily KPI. Tidak ada lagi tabel hourly, event, error summary, atau backup
+`pre_1m` yang ditulis oleh writer.
+
+Histori existing sudah dinormalisasi melalui
+`sql/006_normalize_history_to_five_minutes.sql`. Setelah normalisasi tidak ada lebih
+dari satu raw row untuk target yang sama dalam bucket 5 menit, dan KPI harian dibangun
+ulang dari bucket tersebut.
 
 Retention baru hanya menjaga data sejak data tersebut mulai dikumpulkan. Data yang sudah tidak tersedia di PostgreSQL, Prometheus, atau backup tidak dapat dibuat ulang; karena itu panel YoY akan kosong sampai periode pembanding tahun sebelumnya benar-benar tersedia.
 
@@ -260,24 +283,15 @@ BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS=86400
 
 Nilai default memungkinkan backfill dari retention Prometheus 15 hari, diproses maksimal enam chunk per siklus agar PostgreSQL tidak menerima satu batch yang terlalu besar.
 
-Deployment yang berpindah dari scrape 10 detik ke 1 menit dapat mempertahankan raw
-dan event lama. Normalisasi KPI yang masih dapat direkonstruksi dari raw dijalankan
-satu kali saat writer dihentikan. Gunakan urutan berikut agar sample pada batas
-transisi ikut terambil sebelum KPI dinormalisasi:
+Untuk menerapkan cadence 5 menit tidak perlu rebuild image. Validasi konfigurasi,
+reload Prometheus, lalu recreate writer agar environment baru terbaca:
 
 ```bash
 ./promeblackbox.sh validate
-./promeblackbox.sh build-writer
-./promeblackbox.sh writer-stop
 ./promeblackbox.sh reload
-# Tunggu sedikitnya satu scrape interval (1 menit).
-./promeblackbox.sh writer-run-once
-./promeblackbox.sh normalize-kpi-1m
-./promeblackbox.sh pg-schema
 ./promeblackbox.sh writer-start
 ```
 
-Command tersebut membuat backup KPI sebelum membangun ulang bobot availability
-menjadi satu sample per target per menit. Backup pertama disimpan pada tabel
-`db_port_blackbox_hourly_kpi_pre_1m`, `db_port_blackbox_daily_kpi_pre_1m`, dan
-`db_port_blackbox_daily_error_summary_pre_1m`.
+Storage PostgreSQL yang aktif hanya mempertahankan raw probe 30 hari dan daily KPI
+untuk kebutuhan dashboard ini. Tabel legacy sudah di-drop melalui migration
+`sql/005_kpi_only_cleanup.sql`.

@@ -6,9 +6,8 @@ source "${SCRIPT_DIR}/common.sh"
 
 : "${ENV_FILE:=}"
 : "${PROMETHEUS_URL:=http://prometheus:9090}"
-: "${WRITE_INTERVAL_SECONDS:=60}"
+: "${WRITE_INTERVAL_SECONDS:=300}"
 : "${BLACKBOX_RAW_RETENTION_DAYS:=${BLACKBOX_RETENTION_DAYS:-30}}"
-: "${BLACKBOX_HOURLY_RETENTION_DAYS:=${BLACKBOX_KPI_RETENTION_DAYS:-400}}"
 : "${BLACKBOX_REPORT_RETENTION_DAYS:=2192}"
 : "${BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS:=86400}"
 : "${PROMETHEUS_QUERY_OVERLAP_SECONDS:=180}"
@@ -34,11 +33,6 @@ if ! positive_int "$BLACKBOX_RAW_RETENTION_DAYS"; then
   exit 1
 fi
 
-if ! positive_int "$BLACKBOX_HOURLY_RETENTION_DAYS"; then
-  log ERROR "BLACKBOX_HOURLY_RETENTION_DAYS must be a positive integer"
-  exit 1
-fi
-
 if ! positive_int "$BLACKBOX_REPORT_RETENTION_DAYS"; then
   log ERROR "BLACKBOX_REPORT_RETENTION_DAYS must be a positive integer"
   exit 1
@@ -60,6 +54,8 @@ done
 
 if bool_enabled "$BLACKBOX_RUN_MIGRATIONS"; then
   "${SCRIPT_DIR}/run-psql.sh" -f /workspace/sql/001_blackbox_pg_schema.sql
+  "${SCRIPT_DIR}/run-psql.sh" -f /workspace/sql/004_normalize_environment.sql
+  "${SCRIPT_DIR}/run-psql.sh" -f /workspace/sql/005_kpi_only_cleanup.sql
 fi
 
 METRICS_DIR="/tmp/blackbox-pg-writer-metrics"
@@ -145,14 +141,16 @@ metrics_to_tsv() {
     .data.result[] |
     .metric as $metric |
     .values[] as $sample |
+    (($metric.env // "") | ascii_downcase) as $environment |
     [
       (($sample[0] * 1000) | round | tostring),
       ($metric.db_name // ""),
       ($metric.instance // ""),
       ($metric.db_type // ""),
-      ($metric.env // ""),
+      (if $environment == "qa" or $environment == "uat" or $environment == "development" then "dev" else $environment end),
       ($metric.criticality // ""),
       ($metric.team // ""),
+      (if (($metric.monitoring_excluded // "false") | ascii_downcase) == "true" then "true" else "false" end),
       (($sample[1] | tonumber | floor) | tostring)
     ] | @tsv
   ' "$success_json" > "$success_tsv"
@@ -182,7 +180,8 @@ metrics_to_tsv() {
       environment = $5
       criticality = $6
       team = $7
-      is_up = int($8)
+      monitoring_excluded = $8
+      is_up = int($9)
 
       host = instance
       port = ""
@@ -206,7 +205,7 @@ metrics_to_tsv() {
         error_text = "blackbox probe failed"
       }
 
-      print timestamp_ms, target_name, db_type, environment, host, port, instance, criticality, team, is_up, latency_ms, error_text
+      print timestamp_ms, target_name, db_type, environment, host, port, instance, criticality, team, monitoring_excluded, is_up, latency_ms, error_text
     }
   ' "$duration_tsv" "$success_tsv" > "$stage_file"
 }
@@ -278,7 +277,6 @@ ingest_window() {
   if ! psql_output="$("${SCRIPT_DIR}/run-psql.sh" \
     -qAt \
     -v raw_retention_days="$BLACKBOX_RAW_RETENTION_DAYS" \
-    -v hourly_retention_days="$BLACKBOX_HOURLY_RETENTION_DAYS" \
     -v report_retention_days="$BLACKBOX_REPORT_RETENTION_DAYS" \
     -v target_inactive_after_seconds="$BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS" \
     -f "$ingest_sql")"; then

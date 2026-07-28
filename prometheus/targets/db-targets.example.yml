@@ -3,15 +3,16 @@
   labels:
     db_name: "example-postgres"
     db_type: "postgresql"
-    env: "development"
+    env: "dev"
     team: "platform"
     criticality: "medium"
+    # monitoring_excluded: "true"  # Tetap disimpan, tetapi tidak tampil/KPI/alert.
 
 - targets:
     - "db-mysql.example.com:3306"
   labels:
     db_name: "example-mysql"
     db_type: "mysql"
-    env: "development"
+    env: "dev"
     team: "platform"
     criticality: "low"
