@@ -88,6 +88,7 @@ WITH TargetMap AS
         monitoring_excluded
     FROM (VALUES
         ('bmjkt-000019',  '172.31.100.19',  1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
+        ('bmjkt-000025',  '10.121.2.29',     1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
         ('bmjkt-000041',  '172.31.99.41',   1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
         ('bmjkt-000042',  '172.31.99.42',   1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
         ('bmjkt-000043',  '172.31.99.43',   1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
@@ -117,6 +118,8 @@ WITH TargetMap AS
         ('bmjkt-000194',  '172.31.99.194',  1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
         ('bmjkt-000196',  '172.31.104.196', 1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
         ('bmjkt-000197',  '172.31.104.197', 1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 1)),
+        ('bmjkt-000264',  '10.126.2.147',    1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
+        ('bmjkt-000273',  '172.31.104.173', 1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
         ('bmjkt-000658',  '172.31.100.158', 1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0)),
         ('bmsby-000045',  '172.28.44.45',   1433, 'sqlserver', 'prod', 'high', 'dba', CONVERT(bit, 0))
     ) AS mapped (
