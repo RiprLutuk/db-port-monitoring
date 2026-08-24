@@ -154,3 +154,47 @@ groups:
         annotations:
           summary: "Blackbox PostgreSQL raw table exceeds 2 GiB"
           description: "Ukuran raw probe beserta index melebihi 2 GiB. Verifikasi jumlah target, retention 30 hari, tablespace, dan kapasitas disk."
+
+      - alert: BlackboxPGDailyKPIMissing
+        expr: blackbox_pg_writer_yesterday_missing_kpi_targets > 0
+        for: 30m
+        labels:
+          severity: critical
+          category: data-quality
+          team: dba
+        annotations:
+          summary: "Daily DB-port KPI is missing targets"
+          description: "{{ $value }} target aktif non-excluded belum memiliki daily KPI untuk hari kemarin. Periksa writer, source gap, dan proses agregasi."
+
+      - alert: BlackboxPGDailyKPIPartial
+        expr: blackbox_pg_writer_yesterday_partial_kpi_targets > 0
+        for: 30m
+        labels:
+          severity: warning
+          category: data-quality
+          team: dba
+        annotations:
+          summary: "Daily DB-port KPI has incomplete targets"
+          description: "{{ $value }} target aktif non-excluded tidak memiliki 288 probe lima-menit pada daily KPI hari kemarin."
+
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: alerting
+          team: dba
+        annotations:
+          summary: "Alertmanager is unavailable"
+          description: "Prometheus tidak dapat mengakses Alertmanager selama lebih dari 1 menit; notifikasi Telegram mungkin tidak terkirim."
+
+      - alert: AlertmanagerTelegramDeliveryFailed
+        expr: increase(alertmanager_notifications_failed_total{integration="telegram"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          category: alerting
+          team: dba
+        annotations:
+          summary: "Telegram alert delivery failed"
+          description: "Alertmanager mencatat kegagalan pengiriman Telegram dalam 15 menit terakhir. Periksa token, chat ID, koneksi, dan log Alertmanager."

@@ -6,6 +6,7 @@ source "${SCRIPT_DIR}/common.sh"
 
 : "${ENV_FILE:=}"
 : "${PROMETHEUS_URL:=http://prometheus:9090}"
+: "${ALERTMANAGER_URL:=http://alertmanager:9093}"
 : "${WRITER_METRICS_URL:=http://blackbox-pg-writer:8080/metrics}"
 : "${BLACKBOX_DATA_FRESHNESS_SECONDS:=900}"
 : "${BLACKBOX_RAW_TABLE_MAX_BYTES:=2147483648}"
@@ -46,6 +47,12 @@ if wget -q --timeout=10 --tries=2 -O- "${PROMETHEUS_URL%/}/-/ready" >/dev/null; 
   pass "Prometheus is ready"
 else
   fail "Prometheus is not ready"
+fi
+
+if wget -q --timeout=10 --tries=2 -O- "${ALERTMANAGER_URL%/}/-/ready" >/dev/null; then
+  pass "Alertmanager is ready"
+else
+  fail "Alertmanager is not ready"
 fi
 
 prometheus_targets="$(prometheus_value 'count(probe_success{job="db-port-availability"})' 2>/dev/null || true)"
@@ -190,6 +197,9 @@ if writer_metrics="$(wget -q --timeout=10 --tries=2 -O- "$WRITER_METRICS_URL")";
   raw_estimated_rows="$(awk '$1 == "blackbox_pg_writer_raw_estimated_rows" { print $2 }' <<< "$writer_metrics")"
   raw_table_bytes="$(awk '$1 == "blackbox_pg_writer_raw_table_bytes" { print $2 }' <<< "$writer_metrics")"
   raw_retention_overdue="$(awk '$1 == "blackbox_pg_writer_raw_retention_overdue_seconds" { print $2 }' <<< "$writer_metrics")"
+  yesterday_expected="$(awk '$1 == "blackbox_pg_writer_yesterday_expected_targets" { print $2 }' <<< "$writer_metrics")"
+  yesterday_missing="$(awk '$1 == "blackbox_pg_writer_yesterday_missing_kpi_targets" { print $2 }' <<< "$writer_metrics")"
+  yesterday_partial="$(awk '$1 == "blackbox_pg_writer_yesterday_partial_kpi_targets" { print $2 }' <<< "$writer_metrics")"
 
   if [[ "$writer_cycle" == "1" && "$writer_data" == "1" && "$writer_backlog" == "0" ]]; then
     pass "Writer reports successful cycle, healthy data, and zero backlog"
@@ -218,6 +228,15 @@ if writer_metrics="$(wget -q --timeout=10 --tries=2 -O- "$WRITER_METRICS_URL")";
     pass "Raw retention is within its grace window (${raw_retention_overdue}s overdue)"
   else
     fail "Raw retention is behind (${raw_retention_overdue:-missing}s; grace ${BLACKBOX_RETENTION_GRACE_SECONDS}s)"
+  fi
+
+  if [[ "$yesterday_expected" =~ ^[0-9]+$ ]] \
+    && (( yesterday_expected > 0 )) \
+    && [[ "$yesterday_missing" == "0" ]] \
+    && [[ "$yesterday_partial" == "0" ]]; then
+    pass "Yesterday daily KPI is complete for ${yesterday_expected} dashboard targets"
+  else
+    fail "Yesterday daily KPI coverage is unhealthy (expected=${yesterday_expected:-missing}, missing=${yesterday_missing:-missing}, partial=${yesterday_partial:-missing})"
   fi
 else
   fail "Writer metrics endpoint is unreachable"

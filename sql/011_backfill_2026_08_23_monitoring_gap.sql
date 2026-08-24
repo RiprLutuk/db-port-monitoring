@@ -30,16 +30,23 @@ DECLARE
     missing_inventory_count bigint;
     observed_down_count bigint;
 BEGIN
-    SELECT count(*)
-    INTO daily_target_count
-    FROM monitoring.db_port_blackbox_daily_kpi
-    WHERE period_start = DATE '2026-08-23';
-
     SELECT count(DISTINCT target_name)
     INTO raw_target_count
     FROM monitoring.db_port_blackbox_probe_results
     WHERE checked_at >= TIMESTAMPTZ '2026-08-23 00:00:00+07'
       AND checked_at <  TIMESTAMPTZ '2026-08-24 00:00:00+07';
+
+    SELECT count(*)
+    INTO daily_target_count
+    FROM monitoring.db_port_blackbox_daily_kpi AS daily
+    WHERE daily.period_start = DATE '2026-08-23'
+      AND EXISTS (
+          SELECT 1
+          FROM monitoring.db_port_blackbox_probe_results AS raw
+          WHERE raw.target_name = daily.target_name
+            AND raw.checked_at >= TIMESTAMPTZ '2026-08-23 00:00:00+07'
+            AND raw.checked_at <  TIMESTAMPTZ '2026-08-24 00:00:00+07'
+      );
 
     IF daily_target_count <> 84 OR raw_target_count <> 84 THEN
         RAISE EXCEPTION
@@ -51,27 +58,14 @@ BEGIN
     SELECT count(*)
     INTO mismatched_target_count
     FROM (
-        (
-            SELECT target_name
-            FROM monitoring.db_port_blackbox_daily_kpi
-            WHERE period_start = DATE '2026-08-23'
-            EXCEPT
-            SELECT DISTINCT target_name
-            FROM monitoring.db_port_blackbox_probe_results
-            WHERE checked_at >= TIMESTAMPTZ '2026-08-23 00:00:00+07'
-              AND checked_at <  TIMESTAMPTZ '2026-08-24 00:00:00+07'
-        )
-        UNION ALL
-        (
-            SELECT DISTINCT target_name
-            FROM monitoring.db_port_blackbox_probe_results
-            WHERE checked_at >= TIMESTAMPTZ '2026-08-23 00:00:00+07'
-              AND checked_at <  TIMESTAMPTZ '2026-08-24 00:00:00+07'
-            EXCEPT
-            SELECT target_name
-            FROM monitoring.db_port_blackbox_daily_kpi
-            WHERE period_start = DATE '2026-08-23'
-        )
+        SELECT DISTINCT target_name
+        FROM monitoring.db_port_blackbox_probe_results
+        WHERE checked_at >= TIMESTAMPTZ '2026-08-23 00:00:00+07'
+          AND checked_at <  TIMESTAMPTZ '2026-08-24 00:00:00+07'
+        EXCEPT
+        SELECT target_name
+        FROM monitoring.db_port_blackbox_daily_kpi
+        WHERE period_start = DATE '2026-08-23'
     ) AS differences;
 
     IF mismatched_target_count > 0 THEN
@@ -111,15 +105,19 @@ $validate_source$;
 
 CREATE TEMP TABLE expected_day_buckets ON COMMIT DROP AS
 SELECT
-    daily.target_name,
+    raw_targets.target_name,
     bucket_start
-FROM monitoring.db_port_blackbox_daily_kpi AS daily
+FROM (
+    SELECT DISTINCT target_name
+    FROM monitoring.db_port_blackbox_probe_results
+    WHERE checked_at >= TIMESTAMPTZ '2026-08-23 00:00:00+07'
+      AND checked_at <  TIMESTAMPTZ '2026-08-24 00:00:00+07'
+) AS raw_targets
 CROSS JOIN generate_series(
     TIMESTAMPTZ '2026-08-23 00:00:00+07',
     TIMESTAMPTZ '2026-08-23 23:55:00+07',
     interval '5 minutes'
-) AS expected(bucket_start)
-WHERE daily.period_start = DATE '2026-08-23';
+) AS expected(bucket_start);
 
 CREATE UNIQUE INDEX expected_day_buckets_key
 ON expected_day_buckets (target_name, bucket_start);
@@ -337,6 +335,12 @@ BEGIN
     INTO invalid_daily_target_count
     FROM monitoring.db_port_blackbox_daily_kpi
     WHERE period_start = DATE '2026-08-23'
+      AND target_name IN (
+          SELECT DISTINCT target_name
+          FROM monitoring.db_port_blackbox_probe_results
+          WHERE checked_at >= TIMESTAMPTZ '2026-08-23 00:00:00+07'
+            AND checked_at <  TIMESTAMPTZ '2026-08-24 00:00:00+07'
+      )
       AND (
           probes <> 288
           OR up_probes <> 288

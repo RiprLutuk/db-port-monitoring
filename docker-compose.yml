@@ -5,6 +5,35 @@ x-default-logging: &default-logging
     max-file: "3"
 
 services:
+  alertmanager:
+    image: prom/alertmanager:v0.33.1
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    secrets:
+      - telegram_bot_token
+      - telegram_chat_id
+    ports:
+      - "127.0.0.1:9093:9093"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9093/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    logging: *default-logging
+    networks:
+      - grafana_default
+
   prometheus:
     image: prom/prometheus:v3.13.0
     container_name: prometheus
@@ -28,6 +57,9 @@ services:
       timeout: 5s
       retries: 6
       start_period: 10s
+    depends_on:
+      alertmanager:
+        condition: service_healthy
     logging: *default-logging
     networks:
       - grafana_default
@@ -98,6 +130,15 @@ services:
     logging: *default-logging
     networks:
       - grafana_default
+
+volumes:
+  alertmanager-data:
+
+secrets:
+  telegram_bot_token:
+    environment: TELEGRAM_BOT_TOKEN
+  telegram_chat_id:
+    environment: TELEGRAM_CHAT_ID
 
 networks:
   grafana_default:

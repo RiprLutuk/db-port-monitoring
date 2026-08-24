@@ -5,6 +5,7 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${BASE_DIR}/docker-compose.yml"
 WRITER_ENV_FILE="${WRITER_ENV_FILE:-.env}"
 PROMETHEUS_URL="${PROMETHEUS_URL:-http://127.0.0.1:9090}"
+ALERTMANAGER_URL="${ALERTMANAGER_URL:-http://127.0.0.1:9093}"
 BLACKBOX_URL="${BLACKBOX_URL:-http://127.0.0.1:9115}"
 DEFAULT_TARGET="${TARGET:-db-postgres.example.com:5432}"
 PROMETHEUS_IMAGE="${PROMETHEUS_IMAGE:-prom/prometheus:v3.13.0}"
@@ -21,11 +22,11 @@ Usage: ./promeblackbox.sh COMMAND [OPTIONS]
 
 Commands:
   config                    Validate docker compose config
-  start                     Start prometheus, blackbox-exporter, and writer
+  start                     Start Alertmanager, Prometheus, Blackbox Exporter, and writer
   stop                      Stop project containers only
   restart                   Restart project containers
   status                    Show container status
-  logs [service]            Follow logs. Optional service: prometheus, blackbox-exporter, blackbox-pg-writer
+  logs [service]            Follow logs. Optional service: alertmanager, prometheus, blackbox-exporter, blackbox-pg-writer
   build-writer              Build blackbox-pg-writer image
   validate                  Validate shell scripts and Prometheus config/rules
   verify                    Verify live Prometheus-to-PostgreSQL completeness
@@ -67,11 +68,11 @@ case "$cmd" in
     ;;
 
   stop)
-    compose stop prometheus blackbox-exporter blackbox-pg-writer
+    compose stop alertmanager prometheus blackbox-exporter blackbox-pg-writer
     ;;
 
   restart)
-    compose restart prometheus blackbox-exporter blackbox-pg-writer
+    compose restart alertmanager prometheus blackbox-exporter blackbox-pg-writer
     ;;
 
   status)
@@ -82,7 +83,7 @@ case "$cmd" in
     if [[ $# -gt 0 ]]; then
       compose logs -f --tail=200 "$1"
     else
-      compose logs -f --tail=200 prometheus blackbox-exporter blackbox-pg-writer
+      compose logs -f --tail=200 alertmanager prometheus blackbox-exporter blackbox-pg-writer
     fi
     ;;
 
@@ -102,6 +103,8 @@ case "$cmd" in
     docker run --rm --entrypoint promtool \
       -v "${BASE_DIR}/prometheus:/etc/prometheus:ro" \
       "$PROMETHEUS_IMAGE" check rules /etc/prometheus/alert-rules.yml
+    compose run --rm --no-deps --entrypoint /bin/amtool \
+      alertmanager check-config /etc/alertmanager/alertmanager.yml
     ;;
 
   verify)
@@ -112,7 +115,8 @@ case "$cmd" in
 
   reload)
     curl -sf -X POST "${PROMETHEUS_URL}/-/reload"
-    echo "Prometheus reload requested."
+    curl -sf -X POST "${ALERTMANAGER_URL}/-/reload"
+    echo "Prometheus and Alertmanager reload requested."
     ;;
 
   targets)
