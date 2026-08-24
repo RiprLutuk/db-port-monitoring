@@ -11,6 +11,7 @@ CREATE SCHEMA IF NOT EXISTS :"schema_name";
 --   probe_results  raw samples for current status and short history
 --   targets        target inventory and dashboard dimensions
 --   daily_kpi      historical availability for the selected dashboard range
+--   downtime events are added by 008_outage_events.sql
 CREATE TABLE IF NOT EXISTS :"schema_name".db_port_blackbox_probe_results (
     id bigserial PRIMARY KEY,
     checked_at timestamptz NOT NULL,
@@ -60,6 +61,19 @@ ADD COLUMN IF NOT EXISTS monitoring_excluded boolean NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS idx_db_port_blackbox_targets_active
 ON :"schema_name".db_port_blackbox_targets (is_active, environment, db_type, target_name);
+
+-- Durable progress for source windows that legitimately contain no samples.
+-- Without this checkpoint, max(checked_at) cannot advance across a long
+-- Prometheus gap and every writer restart would retry the same empty window.
+CREATE TABLE IF NOT EXISTS :"schema_name".db_port_blackbox_writer_state (
+    writer_name text PRIMARY KEY,
+    cursor_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (btrim(writer_name) <> '')
+);
+
+COMMENT ON TABLE :"schema_name".db_port_blackbox_writer_state IS
+'Durable Prometheus source-window cursor. This is operational state, not probe or KPI history.';
 
 WITH latest AS (
     SELECT DISTINCT ON (target_name)
@@ -158,9 +172,12 @@ WITH active_targets AS (
     WHERE is_active = true
 ),
 recent AS (
-    SELECT count(DISTINCT target_name)::bigint AS recent_target_count
-    FROM :"schema_name".db_port_blackbox_probe_results
-    WHERE checked_at >= now() - interval '10 minutes'
+    SELECT count(DISTINCT probe.target_name)::bigint AS recent_target_count
+    FROM :"schema_name".db_port_blackbox_probe_results probe
+    INNER JOIN :"schema_name".db_port_blackbox_targets target
+        ON target.target_name = probe.target_name
+       AND target.is_active = true
+    WHERE probe.checked_at >= now() - interval '10 minutes'
 ),
 latest AS (
     SELECT max(checked_at) AS latest_checked_at

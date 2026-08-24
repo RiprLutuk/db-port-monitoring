@@ -12,14 +12,13 @@ DROP VIEW IF EXISTS db_port_blackbox_hourly_availability CASCADE;
 DROP VIEW IF EXISTS db_port_blackbox_downtime_event_history CASCADE;
 DROP VIEW IF EXISTS db_port_blackbox_latency_event_history CASCADE;
 
--- Keep only targets, raw probe samples, and daily KPI for the KPI dashboard.
+-- Keep targets, raw samples, daily KPI, and compact downtime events.
 DROP TABLE IF EXISTS db_port_blackbox_daily_error_summary_pre_1m CASCADE;
 DROP TABLE IF EXISTS db_port_blackbox_daily_kpi_pre_1m CASCADE;
 DROP TABLE IF EXISTS db_port_blackbox_hourly_kpi_pre_1m CASCADE;
 DROP TABLE IF EXISTS db_port_blackbox_daily_error_summary CASCADE;
 DROP TABLE IF EXISTS db_port_blackbox_hourly_kpi CASCADE;
 DROP TABLE IF EXISTS db_port_blackbox_status_events CASCADE;
-DROP TABLE IF EXISTS db_port_blackbox_downtime_events CASCADE;
 DROP TABLE IF EXISTS db_port_blackbox_latency_events CASCADE;
 
 COMMIT;

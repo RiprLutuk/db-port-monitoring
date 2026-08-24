@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111217; color: #d9d9d9; font-family: 'Inter','Roboto',sans-serif; font-size: 12px; }
+
+  /* NAV */
+  .topnav {
+    background: #181b1f; border-bottom: 1px solid #2c2f35;
+    padding: 0 16px; height: 40px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .breadcrumb { color: #6e9fff; font-size: 13px; }
+  .breadcrumb a { color: #6e9fff; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb span { color: #444; margin: 0 5px; }
+  .btn { background: #22252b; border: 1px solid #2c2f35; color: #d9d9d9; padding: 4px 10px; border-radius: 4px; font-size: 12px; }
+  .btn-primary { background: #1f60c4; border: none; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 12px; }
+
+  /* VARBAR */
+  .varbar {
+    background: #181b1f; border-bottom: 1px solid #2c2f35;
+    padding: 6px 16px; display: flex; gap: 20px; align-items: center;
+  }
+  .var-label { color: #8e8e8e; font-size: 11px; }
+  .var-select {
+    background: #22252b; border: 1px solid #2c2f35; color: #d9d9d9;
+    padding: 3px 8px; border-radius: 4px; font-size: 12px;
+  }
+
+  /* SERVER INFO PANEL */
+  .server-info-panel {
+    margin: 10px 12px 0;
+    background: #181b1f; border: 1px solid #2c2f35; border-radius: 4px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .info-cell {
+    padding: 14px 18px;
+    border-right: 1px solid #2c2f35;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .info-cell:last-child { border-right: none; }
+  .info-key {
+    font-size: 10px; color: #5a5e65;
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .info-val {
+    font-size: 14px; font-weight: 500; color: #d9d9d9;
+  }
+  .info-val.mono { font-family: monospace; font-size: 13px; }
+  .info-val.blue { color: #6e9fff; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 10px;
+    font-size: 11px; font-weight: 700; width: fit-content;
+  }
+  .pill-up   { background: #1c3b1c; color: #73bf69; border: 1px solid #2a5c2a; }
+  .pill-down { background: #3d1a1a; color: #f2495c; border: 1px solid #5c2a2a; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+
+  /* LAYOUT */
+  .dashboard { padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .panel { background: #181b1f; border: 1px solid #2c2f35; border-radius: 4px; }
+  .panel-title {
+    font-size: 11px; color: #8e8e8e; padding: 9px 14px 8px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    border-bottom: 1px solid #1e2126;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* STAT ROW */
+  .stat-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; }
+  .stat-card {
+    background: #181b1f; border: 1px solid #2c2f35; border-radius: 4px;
+    padding: 14px 16px 13px;
+  }
+  .stat-label { font-size: 10px; color: #8e8e8e; text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat-value { font-size: 30px; font-weight: 200; line-height: 1.2; margin-top: 6px; }
+  .stat-sub { font-size: 10px; color: #5a5e65; margin-top: 3px; }
+  .stat-bar { height: 3px; border-radius: 2px; margin-top: 10px; background: #2c2f35; }
+  .stat-bar-fill { height: 100%; border-radius: 2px; }
+
+  /* SUMMARY TABLE */
+  .stbl { width: 100%; border-collapse: collapse; }
+  .stbl th {
+    text-align: left; padding: 8px 14px;
+    font-size: 10px; color: #5a5e65;
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 400;
+    border-bottom: 1px solid #1e2126;
+    white-space: nowrap;
+  }
+  .stbl td {
+    padding: 8px 14px; border-bottom: 1px solid #1a1d22; font-size: 12px;
+    vertical-align: middle;
+  }
+  .stbl tr:last-child td { border-bottom: none; }
+  .stbl tr:hover td { background: #1c1f24; }
+
+  .mini-bar-wrap { width: 80px; height: 5px; background: #2c2f35; border-radius: 3px; display: inline-block; vertical-align: middle; margin-left: 6px; }
+  .mini-bar-fill { height: 100%; border-radius: 3px; }
+
+  /* FAILED PROBE TABLE */
+  .ftbl { width: 100%; border-collapse: collapse; }
+  .ftbl th {
+    text-align: left; padding: 7px 14px;
+    font-size: 10px; color: #5a5e65;
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 400;
+    border-bottom: 1px solid #1e2126;
+    position: sticky; top: 0; background: #181b1f; z-index: 1;
+  }
+  .ftbl td { padding: 5px 14px; border-bottom: 1px solid #141720; font-size: 11px; }
+  .ftbl tr:hover td { background: #1f1010; }
+  .failed-wrap { max-height: 320px; overflow-y: auto; }
+  .failed-wrap::-webkit-scrollbar { width: 4px; }
+  .failed-wrap::-webkit-scrollbar-track { background: #111217; }
+  .failed-wrap::-webkit-scrollbar-thumb { background: #3d1a1a; border-radius: 2px; }
+
+  .err-pill {
+    display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px;
+    background: #2a1010; color: #e07070; border: 1px solid #4a2020;
+    white-space: nowrap;
+  }
+  .seq-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 14px; border-radius: 2px;
+    background: #3d1a1a; color: #f2495c; font-size: 9px; font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topnav">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="color:#ff7043;font-size:16px;font-weight:800">G</span>
+    <span class="breadcrumb">
+      <a href="#">Linknet Ops</a> <span>›</span>
+      <a href="#">DB Availability KPI</a> <span>›</span>
+      Server Probe History
+    </span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="btn">🕐 Last 30 days ▾</div>
+    <div class="btn">⟳ 1m</div>
+    <div class="btn-primary">Save</div>
+  </div>
+</div>
+
+<!-- VAR BAR -->
+<div class="varbar">
+  <span class="var-label">Server:</span>
+  <select class="var-select" style="min-width:180px">
+    <option>mysql-prod-04</option>
+    <option>mssql-dw-01</option>
+    <option>mssql-03</option>
+    <option>oracle-03</option>
+    <option>pg-replica-02</option>
+  </select>
+  <span class="var-label" style="margin-left:8px">Bulan:</span>
+  <select class="var-select" id="monthFilter" onchange="applyMonthFilter()">
+    <option value="all">Semua</option>
+    <option value="2025-06" selected>Juni 2025</option>
+    <option value="2025-05">Mei 2025</option>
+    <option value="2025-04">April 2025</option>
+    <option value="2025-03">Maret 2025</option>
+  </select>
+</div>
+
+<!-- SERVER INFO PANEL -->
+<div class="server-info-panel">
+  <div class="info-cell">
+    <div class="info-key">Hostname</div>
+    <div class="info-val blue">mysql-prod-04</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-key">IP Address</div>
+    <div class="info-val mono">10.10.4.24</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-key">Port</div>
+    <div class="info-val mono">3306</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-key">DB Type</div>
+    <div class="info-val">MySQL</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-key">Environment</div>
+    <div class="info-val">Production</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-key">Current Status</div>
+    <div style="margin-top:3px">
+      <span class="pill pill-down">
+        <span class="dot" style="background:#f2495c"></span> DOWN
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard">
+
+  <!-- ── 5 STAT TILES ── -->
+  <div class="stat-row">
+
+    <div class="stat-card">
+      <div class="stat-label">Total Probes</div>
+      <div class="stat-value" style="color:#fff">86,400</div>
+      <div class="stat-sub">30 hari · interval 30 detik</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:100%;background:#3a3f4a"></div></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Success Probes</div>
+      <div class="stat-value" style="color:#73bf69">52,704</div>
+      <div class="stat-sub">port responded</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:61%;background:#73bf69"></div></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Failed Probes</div>
+      <div class="stat-value" style="color:#f2495c">33,696</div>
+      <div class="stat-sub">timeout / connection refused</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:39%;background:#f2495c"></div></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Total Downtime</div>
+      <div class="stat-value" style="color:#f2495c">11d <span style="font-size:18px">15h</span></div>
+      <div class="stat-sub">di 7 insiden terpisah</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:39%;background:#f2495c"></div></div>
+    </div>
+
+    <div class="stat-card" style="border-color:#4a3a10;background:#1a1608">
+      <div style="font-size:9px;background:#3a2c08;color:#f5a623;border:1px solid #5a4410;
+                  border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:4px;
+                  text-transform:uppercase;letter-spacing:.06em">KPI · 30 Days</div>
+      <div class="stat-label" style="color:#f5a623">Availability</div>
+      <div class="stat-value" style="color:#f5a623">61.0<span style="font-size:16px">%</span></div>
+      <div class="stat-sub" style="color:#7a6020">simple average</div>
+      <div class="stat-bar" style="background:#3a2c08">
+        <div class="stat-bar-fill" style="width:61%;background:#f2495c"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── PROBE SUMMARY TABLE ── -->
+  <div class="panel">
+    <div class="panel-title">
+      <span>Probe Summary — Per Hari</span>
+      <span style="font-size:10px;color:#5a5e65;text-transform:none">30 hari terakhir · diurutkan terbaru</span>
+    </div>
+    <table class="stbl">
+      <thead>
+        <tr>
+          <th>Start Probe</th>
+          <th style="text-align:right">Number of Success</th>
+          <th style="text-align:right">Number of Failed</th>
+          <th>Downtime</th>
+          <th>Availability</th>
+        </tr>
+      </thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+  </div>
+
+  <!-- ── FAILED PROBE LOG ── -->
+  <div class="panel">
+    <div class="panel-title">
+      <span>⬤ Failed Probe Log</span>
+      <span style="font-size:10px;color:#f2495c;text-transform:none;font-weight:400"
+            id="failedCount">33,696 failed probes · showing latest 200</span>
+    </div>
+    <div class="failed-wrap">
+      <table class="ftbl">
+        <thead>
+          <tr>
+            <th width="175">Timestamp</th>
+            <th width="100">Port</th>
+            <th width="110">Error Type</th>
+            <th>Error Detail</th>
+          </tr>
+        </thead>
+        <tbody id="failedBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const errorTypes = [
+  { type: 'ECONNREFUSED', detail: 'Connection refused — port not listening' },
+  { type: 'ETIMEDOUT',    detail: 'Connection timed out — no response after 5s' },
+  { type: 'ECONNRESET',   detail: 'Connection reset by peer' },
+  { type: 'EHOSTUNREACH', detail: 'No route to host' },
+];
+
+// ── Master data ──
+const ALL_SUMMARY = [
+  // June 2025
+  { date: '2025-06-28', success: 272,  failed: 276,  downtime: '2h 18m',  partial: true  },
+  { date: '2025-06-27', success: 1440, failed: 1440, downtime: '12h 00m', partial: false },
+  { date: '2025-06-26', success: 860,  failed: 2020, downtime: '16h 50m', partial: false },
+  { date: '2025-06-25', success: 1100, failed: 1780, downtime: '14h 50m', partial: false },
+  { date: '2025-06-24', success: 2026, failed: 854,  downtime: '7h 07m',  partial: false },
+  { date: '2025-06-23', success: 0,    failed: 2880, downtime: '24h 00m', partial: false },
+  { date: '2025-06-22', success: 0,    failed: 2880, downtime: '24h 00m', partial: false },
+  { date: '2025-06-21', success: 0,    failed: 2880, downtime: '24h 00m', partial: false },
+  { date: '2025-06-20', success: 930,  failed: 1950, downtime: '16h 15m', partial: false },
+  { date: '2025-06-19', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-06-18', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-06-17', success: 1782, failed: 1098, downtime: '9h 09m',  partial: false },
+  { date: '2025-06-16', success: 0,    failed: 2880, downtime: '24h 00m', partial: false },
+  { date: '2025-06-15', success: 0,    failed: 2880, downtime: '24h 00m', partial: false },
+  { date: '2025-06-14', success: 1620, failed: 1260, downtime: '10h 30m', partial: false },
+  { date: '2025-06-13', success: 1664, failed: 1216, downtime: '10h 08m', partial: false },
+  { date: '2025-06-12', success: 0,    failed: 2880, downtime: '24h 00m', partial: false },
+  { date: '2025-06-11', success: 1306, failed: 1574, downtime: '13h 07m', partial: false },
+  { date: '2025-06-10', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-06-09', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-06-08', success: 2002, failed: 878,  downtime: '7h 19m',  partial: false },
+  { date: '2025-06-07', success: 744,  failed: 2136, downtime: '17h 48m', partial: false },
+  { date: '2025-06-06', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-06-05', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-06-04', success: 1512, failed: 1368, downtime: '11h 24m', partial: false },
+  { date: '2025-06-03', success: 660,  failed: 2220, downtime: '18h 30m', partial: false },
+  { date: '2025-06-02', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-06-01', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  // May 2025
+  { date: '2025-05-31', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-30', success: 866,  failed: 2014, downtime: '16h 47m', partial: false },
+  { date: '2025-05-29', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-28', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-27', success: 1540, failed: 1340, downtime: '11h 10m', partial: false },
+  { date: '2025-05-26', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-25', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-24', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-23', success: 2640, failed: 240,  downtime: '2h 00m',  partial: false },
+  { date: '2025-05-22', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-21', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-20', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-19', success: 0,    failed: 2880, downtime: '24h 00m', partial: false },
+  { date: '2025-05-18', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-17', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-16', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-15', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-14', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-13', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-12', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-11', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-10', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-09', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-08', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-07', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-06', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-05', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-04', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-03', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-02', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-05-01', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  // April 2025
+  { date: '2025-04-30', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-29', success: 2520, failed: 360,  downtime: '3h 00m',  partial: false },
+  { date: '2025-04-28', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-27', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-26', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-25', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-24', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-23', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-22', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-21', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-20', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-19', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-18', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-17', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-16', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-15', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-14', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-13', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-12', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-11', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-10', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-09', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-08', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-07', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-06', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-05', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-04', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-03', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-02', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-04-01', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  // March 2025
+  { date: '2025-03-31', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-30', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-29', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-28', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-27', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-26', success: 1920, failed: 960,  downtime: '8h 00m',  partial: false },
+  { date: '2025-03-25', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-24', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-23', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-22', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-21', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-20', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-19', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-18', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-17', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-16', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-15', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-14', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-13', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-12', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-11', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-10', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-09', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-08', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-07', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-06', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-05', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-04', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-03', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-02', success: 2880, failed: 0,    downtime: '—',       partial: false },
+  { date: '2025-03-01', success: 2880, failed: 0,    downtime: '—',       partial: false },
+];
+
+// ── Render Summary Table ──
+function renderSummary(month) {
+  const tbody = document.getElementById('summaryBody');
+  tbody.innerHTML = '';
+  const rows = month === 'all' ? ALL_SUMMARY : ALL_SUMMARY.filter(d => d.date.startsWith(month));
+
+  rows.forEach(d => {
+    const total = d.success + d.failed;
+    const avail = total > 0 ? (d.success / total * 100) : 0;
+    const ac = avail >= 95 ? '#73bf69' : avail >= 80 ? '#ff9830' : '#f2495c';
+    const hasFail = d.failed > 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:monospace;color:#8e8e8e">
+        ${d.date} 00:00:00
+        ${d.partial ? '<span style="font-size:9px;color:#5794f2;margin-left:6px;background:#0d1a30;border:1px solid #1a3a60;padding:1px 5px;border-radius:2px">partial</span>' : ''}
+      </td>
+      <td style="text-align:right;color:#73bf69">${d.success.toLocaleString()}</td>
+      <td style="text-align:right;color:${hasFail ? '#f2495c' : '#5a5e65'}">${hasFail ? d.failed.toLocaleString() : '—'}</td>
+      <td style="color:${hasFail ? '#f2495c' : '#5a5e65'}">${d.downtime}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${avail.toFixed(0)}%;background:${ac}"></div></div>
+          <span style="color:${ac};font-weight:600;font-size:12px;min-width:44px">${total > 0 ? avail.toFixed(1)+'%' : '—'}</span>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Render Failed Probe Log ──
+function renderFailed(month) {
+  const tbody  = document.getElementById('failedBody');
+  const badge  = document.getElementById('failedCount');
+  tbody.innerHTML = '';
+
+  // Build failed probe timestamps from summary rows that have failures
+  const rows = month === 'all' ? ALL_SUMMARY : ALL_SUMMARY.filter(d => d.date.startsWith(month));
+  const failedRows = rows.filter(d => d.failed > 0);
+
+  const pad = n => String(n).padStart(2,'0');
+  let totalFailed = 0;
+  let rendered = 0;
+  const MAX_ROWS = 200;
+
+  failedRows.forEach(d => {
+    totalFailed += d.failed;
+    if (rendered >= MAX_ROWS) return;
+
+    // Generate individual probe entries for this day — spread across the day
+    // Show up to (MAX_ROWS - rendered) rows
+    const show = Math.min(d.failed, MAX_ROWS - rendered);
+    // Distribute evenly across 24h for that date
+    const intervalSec = Math.floor(86400 / d.failed);
+
+    for (let i = 0; i < show; i++) {
+      const secOfDay = i * intervalSec;
+      const h = Math.floor(secOfDay / 3600);
+      const m = Math.floor((secOfDay % 3600) / 60);
+      const s = secOfDay % 60;
+      const tsStr = `${d.date} ${pad(h)}:${pad(m)}:${pad(s)}`;
+      const err = errorTypes[i % errorTypes.length];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-family:monospace;color:#8e8e8e">${tsStr}</td>
+        <td style="font-family:monospace;color:#d9d9d9">3306</td>
+        <td><span class="err-pill">${err.type}</span></td>
+        <td style="color:#c05050">${err.detail}</td>`;
+      tbody.appendChild(tr);
+      rendered++;
+    }
+  });
+
+  badge.textContent = `${totalFailed.toLocaleString()} failed probes · showing ${rendered}`;
+}
+
+// ── Filter handler ──
+function applyMonthFilter() {
+  const month = document.getElementById('monthFilter').value;
+  renderSummary(month);
+  renderFailed(month);
+}
+
+// ── Initial render ──
+applyMonthFilter();
+</script>
+</body>
+</html>

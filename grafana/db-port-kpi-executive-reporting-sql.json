@@ -24,10 +24,10 @@
   "panels": [
     {
       "id": 1,
-      "type": "stat",
-      "title": "Total Instances",
+      "type": "canvas",
+      "title": "TOTAL INSTANCES",
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 4,
         "x": 0,
         "y": 0
@@ -53,24 +53,92 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "locale"
         },
         "overrides": []
       },
       "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#d8d9da"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 28
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 0,
+                "left": 14,
+                "right": 10,
+                "height": 36,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e8e8e"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 10
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 34,
+                "left": 14,
+                "right": 10,
+                "height": 16,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
         },
-        "textMode": "auto",
-        "wideLayout": true
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
       },
       "targets": [
         {
@@ -81,7 +149,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*)::bigint AS value\nFROM monitoring.probe_current_status\nWHERE NOT monitoring_excluded\n  AND ('$environment' = '%' OR environment = '$environment')\n  AND ('$db_type' = '%' OR db_type = '$db_type');",
+          "rawSql": "SELECT\n  count(*)::bigint AS value,\n  CASE WHEN count(*) > 0 THEN 100.0 ELSE 0.0 END::double precision AS progress,\n  'servers monitored'::text AS subtitle\nFROM monitoring.probe_current_status\nWHERE NOT monitoring_excluded\n  AND ('$environment' = '%' OR environment = '$environment')\n  AND ('$db_type' = '%' OR db_type = '$db_type');",
           "refId": "A"
         }
       ],
@@ -89,10 +157,10 @@
     },
     {
       "id": 2,
-      "type": "stat",
-      "title": "Port UP",
+      "type": "canvas",
+      "title": "PORT UP",
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 5,
         "x": 4,
         "y": 0
@@ -105,7 +173,7 @@
         "defaults": {
           "color": {
             "fixedColor": "green",
-            "mode": "thresholds"
+            "mode": "fixed"
           },
           "decimals": 0,
           "mappings": [],
@@ -118,24 +186,92 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "locale"
         },
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#73bf69"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 28
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 0,
+                "left": 14,
+                "right": 10,
+                "height": 36,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e8e8e"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 10
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 34,
+                "left": 14,
+                "right": 10,
+                "height": 16,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
         },
-        "textMode": "auto",
-        "wideLayout": true
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
       },
       "targets": [
         {
@@ -146,7 +282,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*)::bigint AS value\nFROM monitoring.probe_current_status\nWHERE probe_success\n  AND NOT monitoring_excluded\n  AND ('$environment' = '%' OR environment = '$environment')\n  AND ('$db_type' = '%' OR db_type = '$db_type');",
+          "rawSql": "SELECT\n  count(*) FILTER (WHERE probe_success)::bigint AS value,\n  coalesce(round(count(*) FILTER (WHERE probe_success)::numeric / nullif(count(*), 0) * 100, 2), 0)::double precision AS progress,\n  'port responding right now'::text AS subtitle\nFROM monitoring.probe_current_status\nWHERE NOT monitoring_excluded\n  AND ('$environment' = '%' OR environment = '$environment')\n  AND ('$db_type' = '%' OR db_type = '$db_type');",
           "refId": "A"
         }
       ],
@@ -154,10 +290,10 @@
     },
     {
       "id": 3,
-      "type": "stat",
-      "title": "Port DOWN",
+      "type": "canvas",
+      "title": "PORT DOWN",
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 5,
         "x": 9,
         "y": 0
@@ -170,7 +306,7 @@
         "defaults": {
           "color": {
             "fixedColor": "red",
-            "mode": "thresholds"
+            "mode": "fixed"
           },
           "decimals": 0,
           "mappings": [],
@@ -183,24 +319,92 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "locale"
         },
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f2495c"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 28
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 0,
+                "left": 14,
+                "right": 10,
+                "height": 36,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e8e8e"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 10
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 34,
+                "left": 14,
+                "right": 10,
+                "height": 16,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
         },
-        "textMode": "auto",
-        "wideLayout": true
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
       },
       "targets": [
         {
@@ -211,7 +415,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*)::bigint AS value\nFROM monitoring.probe_current_status\nWHERE NOT probe_success\n  AND NOT monitoring_excluded\n  AND ('$environment' = '%' OR environment = '$environment')\n  AND ('$db_type' = '%' OR db_type = '$db_type');",
+          "rawSql": "SELECT\n  count(*) FILTER (WHERE NOT probe_success)::bigint AS value,\n  coalesce(round(count(*) FILTER (WHERE NOT probe_success)::numeric / nullif(count(*), 0) * 100, 2), 0)::double precision AS progress,\n  'timeout / connection refused'::text AS subtitle\nFROM monitoring.probe_current_status\nWHERE NOT monitoring_excluded\n  AND ('$environment' = '%' OR environment = '$environment')\n  AND ('$db_type' = '%' OR db_type = '$db_type');",
           "refId": "A"
         }
       ],
@@ -219,10 +423,10 @@
     },
     {
       "id": 4,
-      "type": "stat",
-      "title": "Current Availability",
+      "type": "canvas",
+      "title": "",
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 5,
         "x": 14,
         "y": 0
@@ -235,9 +439,9 @@
         "defaults": {
           "color": {
             "fixedColor": "blue",
-            "mode": "thresholds"
+            "mode": "fixed"
           },
-          "decimals": 2,
+          "decimals": 1,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -261,19 +465,193 @@
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Background",
+              "type": "rectangle",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                },
+                "size": 1
+              },
+              "constraint": {
+                "vertical": "topbottom",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 0,
+                "bottom": 0,
+                "left": 0,
+                "right": 0,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0d1520"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Live Badge",
+              "type": "rectangle",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#5794f2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "LIVE"
+                },
+                "size": 8
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "left"
+              },
+              "placement": {
+                "top": 5,
+                "left": 14,
+                "width": 42,
+                "height": 15,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0d2040"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#1a3a60"
+                },
+                "width": 1,
+                "radius": 3
+              },
+              "links": []
+            },
+            {
+              "name": "Label",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#5794f2"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "CURRENT AVAILABILITY"
+                },
+                "size": 9
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 21,
+                "left": 14,
+                "right": 10,
+                "height": 13,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#5794f2"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 28
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 33,
+                "left": 14,
+                "right": 10,
+                "height": 32,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#6e9fff"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 9
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 65,
+                "left": 14,
+                "right": 10,
+                "height": 14,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
         },
-        "textMode": "auto",
-        "wideLayout": true
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
       },
       "targets": [
         {
@@ -284,7 +662,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT coalesce(round(avg(probe_success::int) * 100, 2), 0)::double precision AS value\nFROM monitoring.probe_current_status\nWHERE NOT monitoring_excluded\n  AND ('$environment' = '%' OR environment = '$environment')\n  AND ('$db_type' = '%' OR db_type = '$db_type');",
+          "rawSql": "SELECT\n  coalesce(round(avg(probe_success::int) * 100, 2), 0)::double precision AS value,\n  coalesce(round(avg(probe_success::int) * 100, 2), 0)::double precision AS progress,\n  count(*) FILTER (WHERE probe_success)::text || ' of ' || count(*)::text || ' ports UP right now' AS subtitle\nFROM monitoring.probe_current_status\nWHERE NOT monitoring_excluded\n  AND ('$environment' = '%' OR environment = '$environment')\n  AND ('$db_type' = '%' OR db_type = '$db_type');",
           "refId": "A"
         }
       ],
@@ -292,10 +670,10 @@
     },
     {
       "id": 5,
-      "type": "stat",
-      "title": "Availability KPI (Selected Range)",
+      "type": "canvas",
+      "title": "",
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 5,
         "x": 19,
         "y": 0
@@ -308,9 +686,9 @@
         "defaults": {
           "color": {
             "fixedColor": "yellow",
-            "mode": "thresholds"
+            "mode": "fixed"
           },
-          "decimals": 2,
+          "decimals": 1,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -338,19 +716,194 @@
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Background",
+              "type": "rectangle",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                },
+                "size": 1
+              },
+              "constraint": {
+                "vertical": "topbottom",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 0,
+                "bottom": 0,
+                "left": 0,
+                "right": 0,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1a1608"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "KPI Period",
+              "type": "rectangle",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f5a623"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "badge"
+                },
+                "size": 8
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "left"
+              },
+              "placement": {
+                "top": 5,
+                "left": 14,
+                "width": 130,
+                "height": 15,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3a2c08"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#5a4410"
+                },
+                "width": 1,
+                "radius": 3
+              },
+              "links": []
+            },
+            {
+              "name": "Label",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f5a623"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "OVERALL AVAILABILITY"
+                },
+                "size": 9
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 21,
+                "left": 14,
+                "right": 10,
+                "height": 13,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f5a623"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 28
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 33,
+                "left": 14,
+                "right": 10,
+                "height": 32,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e6b20"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 9
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 65,
+                "left": 14,
+                "right": 10,
+                "height": 14,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
         },
-        "textMode": "auto",
-        "wideLayout": true
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
       },
       "targets": [
         {
@@ -361,11 +914,346 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH target_kpi AS (\n  SELECT\n    d.target_name,\n    sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability_pct\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  JOIN monitoring.db_port_blackbox_targets t ON t.target_name = d.target_name\n  WHERE NOT t.monitoring_excluded\n    AND d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date\n    AND ('$environment' = '%' OR d.environment = '$environment')\n    AND ('$db_type' = '%' OR d.db_type = '$db_type')\n  GROUP BY d.target_name\n)\nSELECT coalesce(round(avg(availability_pct), 2), 0)::double precision AS value\nFROM target_kpi;",
+          "rawSql": "WITH target_kpi AS (\n  SELECT\n    d.target_name,\n    sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100 AS availability_pct\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  JOIN monitoring.db_port_blackbox_targets t ON t.target_name = d.target_name\n  WHERE NOT t.monitoring_excluded\n    AND d.period_start BETWEEN $__timeFrom()::date AND $__timeTo()::date\n    AND ('$environment' = '%' OR d.environment = '$environment')\n    AND ('$db_type' = '%' OR d.db_type = '$db_type')\n  GROUP BY d.target_name\n)\nSELECT\n  coalesce(round(avg(availability_pct), 2), 0)::double precision AS value,\n  coalesce(round(avg(availability_pct), 2), 0)::double precision AS progress,\n  'simple avg. across ' || count(*)::text || ' instances' AS subtitle,\n  'KPI - ' || greatest(ceil(extract(epoch FROM ($__timeTo()::timestamptz - $__timeFrom()::timestamptz)) / 86400.0)::integer, 1)::text || ' DAYS' AS badge\nFROM target_kpi;",
           "refId": "A"
         }
       ],
       "description": "Equal-weight average target availability for the dashboard time range."
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 4,
+        "x": 0,
+        "y": 3
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-gray",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-gray",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 1,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 5,
+        "x": 4,
+        "y": 3
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 2,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 5,
+        "x": 9,
+        "y": 3
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 3,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 5,
+        "x": 14,
+        "y": 3
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 4,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 5,
+        "x": 19,
+        "y": 3
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "yellow",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 5,
+          "refId": "A"
+        }
+      ]
     },
     {
       "id": 6,
@@ -640,8 +1528,8 @@
       "title": "${target}",
       "description": "One UP/DOWN card per selected database target.",
       "gridPos": {
-        "h": 4,
-        "w": 4,
+        "h": 3,
+        "w": 3,
         "x": 0,
         "y": 14
       },
@@ -706,8 +1594,8 @@
         "textMode": "value",
         "wideLayout": false,
         "text": {
-          "titleSize": 11,
-          "valueSize": 22
+          "titleSize": 10,
+          "valueSize": 18
         }
       },
       "targets": [
@@ -725,7 +1613,7 @@
       ],
       "repeat": "target",
       "repeatDirection": "h",
-      "maxPerRow": 6
+      "maxPerRow": 8
     }
   ],
   "refresh": "5m",
@@ -861,6 +1749,6 @@
   "timezone": "browser",
   "title": "DB Port Availability KPI - SQL",
   "uid": "db-port-kpi-executive-reporting-sql",
-  "version": 19,
+  "version": 21,
   "weekStart": "monday"
 }

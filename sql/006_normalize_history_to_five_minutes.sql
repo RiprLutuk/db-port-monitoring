@@ -8,9 +8,22 @@ BEGIN;
 SET LOCAL search_path TO pg_temp, :"schema_name";
 
 DO $guard$
+DECLARE
+    has_downtime_events boolean := false;
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM db_port_blackbox_probe_results) THEN
         RAISE EXCEPTION 'Cannot normalize history because raw probe data is empty';
+    END IF;
+
+    IF to_regclass('db_port_blackbox_downtime_events') IS NOT NULL THEN
+        EXECUTE
+            'SELECT EXISTS (SELECT 1 FROM db_port_blackbox_downtime_events)'
+        INTO has_downtime_events;
+    END IF;
+
+    IF has_downtime_events THEN
+        RAISE EXCEPTION
+            'Cannot normalize raw history after downtime events have been created';
     END IF;
 END
 $guard$;
