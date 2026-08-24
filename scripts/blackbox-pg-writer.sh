@@ -86,6 +86,9 @@ MISSING_RECENT_TARGET_COUNT=0
 RAW_ESTIMATED_ROWS=0
 RAW_TABLE_BYTES=0
 RAW_RETENTION_OVERDUE_SECONDS=0
+YESTERDAY_EXPECTED_TARGET_COUNT=0
+YESTERDAY_MISSING_KPI_TARGET_COUNT=0
+YESTERDAY_PARTIAL_KPI_TARGET_COUNT=0
 METRICS_HTTPD_PID=""
 
 write_writer_metrics() {
@@ -154,6 +157,15 @@ write_writer_metrics() {
     printf '# HELP blackbox_pg_writer_raw_retention_overdue_seconds Age beyond the configured raw retention boundary.\n'
     printf '# TYPE blackbox_pg_writer_raw_retention_overdue_seconds gauge\n'
     printf 'blackbox_pg_writer_raw_retention_overdue_seconds %s\n' "$RAW_RETENTION_OVERDUE_SECONDS"
+    printf '# HELP blackbox_pg_writer_yesterday_expected_targets Non-excluded active targets expected in yesterday daily KPI.\n'
+    printf '# TYPE blackbox_pg_writer_yesterday_expected_targets gauge\n'
+    printf 'blackbox_pg_writer_yesterday_expected_targets %s\n' "$YESTERDAY_EXPECTED_TARGET_COUNT"
+    printf '# HELP blackbox_pg_writer_yesterday_missing_kpi_targets Expected targets without a daily KPI row for yesterday.\n'
+    printf '# TYPE blackbox_pg_writer_yesterday_missing_kpi_targets gauge\n'
+    printf 'blackbox_pg_writer_yesterday_missing_kpi_targets %s\n' "$YESTERDAY_MISSING_KPI_TARGET_COUNT"
+    printf '# HELP blackbox_pg_writer_yesterday_partial_kpi_targets Expected targets whose yesterday daily KPI does not contain 288 five-minute probes.\n'
+    printf '# TYPE blackbox_pg_writer_yesterday_partial_kpi_targets gauge\n'
+    printf 'blackbox_pg_writer_yesterday_partial_kpi_targets %s\n' "$YESTERDAY_PARTIAL_KPI_TARGET_COUNT"
   } > "$temp_file"
 
   mv "$temp_file" "$METRICS_FILE"
@@ -339,9 +351,10 @@ persist_checkpoint_epoch() {
 refresh_database_health_metrics() {
   local quoted_schema sql health_row latest_probe active recent missing checkpoint
   local raw_estimated_rows raw_table_bytes raw_retention_overdue
+  local yesterday_expected yesterday_missing yesterday_partial
 
   quoted_schema="${PGSCHEMA//\"/\"\"}"
-  sql="SELECT coalesce(floor(extract(epoch FROM health.latest_checked_at))::bigint, 0), health.active_target_count, health.recent_target_count, health.missing_recent_target_count, coalesce(floor(extract(epoch FROM state.cursor_at))::bigint, 0), coalesce((SELECT greatest(n_live_tup::bigint, 0) FROM pg_stat_user_tables WHERE relid = '\"${quoted_schema}\".db_port_blackbox_probe_results'::regclass), 0), pg_total_relation_size('\"${quoted_schema}\".db_port_blackbox_probe_results'::regclass)::bigint, coalesce(greatest(floor(extract(epoch FROM ((now() - interval '${BLACKBOX_RAW_RETENTION_DAYS} days') - (SELECT min(checked_at) FROM \"${quoted_schema}\".db_port_blackbox_probe_results))))::bigint, 0), 0) FROM \"${quoted_schema}\".db_port_blackbox_ingest_health health LEFT JOIN \"${quoted_schema}\".db_port_blackbox_writer_state state ON state.writer_name = '${WRITER_STATE_NAME}';"
+  sql="WITH target_day AS (SELECT ((now() AT TIME ZONE 'Asia/Jakarta')::date - 1) AS day), expected_targets AS (SELECT target.target_name FROM \"${quoted_schema}\".db_port_blackbox_targets target CROSS JOIN target_day WHERE target.is_active = true AND target.monitoring_excluded = false AND (target.first_seen_at AT TIME ZONE 'Asia/Jakarta')::date <= target_day.day), coverage AS (SELECT expected.target_name, daily.target_name AS daily_target_name, daily.probes FROM expected_targets expected CROSS JOIN target_day LEFT JOIN \"${quoted_schema}\".db_port_blackbox_daily_kpi daily ON daily.target_name = expected.target_name AND daily.period_start = target_day.day), daily_health AS (SELECT count(*)::bigint AS expected_target_count, count(*) FILTER (WHERE daily_target_name IS NULL)::bigint AS missing_target_count, count(*) FILTER (WHERE daily_target_name IS NOT NULL AND probes <> 288)::bigint AS partial_target_count FROM coverage) SELECT coalesce(floor(extract(epoch FROM health.latest_checked_at))::bigint, 0), health.active_target_count, health.recent_target_count, health.missing_recent_target_count, coalesce(floor(extract(epoch FROM state.cursor_at))::bigint, 0), coalesce((SELECT greatest(n_live_tup::bigint, 0) FROM pg_stat_user_tables WHERE relid = '\"${quoted_schema}\".db_port_blackbox_probe_results'::regclass), 0), pg_total_relation_size('\"${quoted_schema}\".db_port_blackbox_probe_results'::regclass)::bigint, coalesce(greatest(floor(extract(epoch FROM ((now() - interval '${BLACKBOX_RAW_RETENTION_DAYS} days') - (SELECT min(checked_at) FROM \"${quoted_schema}\".db_port_blackbox_probe_results))))::bigint, 0), 0), daily_health.expected_target_count, daily_health.missing_target_count, daily_health.partial_target_count FROM \"${quoted_schema}\".db_port_blackbox_ingest_health health LEFT JOIN \"${quoted_schema}\".db_port_blackbox_writer_state state ON state.writer_name = '${WRITER_STATE_NAME}' CROSS JOIN daily_health;"
 
   if ! health_row="$("${SCRIPT_DIR}/run-psql.sh" -qAtc "$sql")"; then
     log ERROR "Failed to read PostgreSQL ingest health"
@@ -349,10 +362,12 @@ refresh_database_health_metrics() {
   fi
 
   IFS='|' read -r latest_probe active recent missing checkpoint \
-    raw_estimated_rows raw_table_bytes raw_retention_overdue <<< "$health_row"
+    raw_estimated_rows raw_table_bytes raw_retention_overdue \
+    yesterday_expected yesterday_missing yesterday_partial <<< "$health_row"
   for health_value in \
     "$latest_probe" "$active" "$recent" "$missing" "$checkpoint" \
-    "$raw_estimated_rows" "$raw_table_bytes" "$raw_retention_overdue"; do
+    "$raw_estimated_rows" "$raw_table_bytes" "$raw_retention_overdue" \
+    "$yesterday_expected" "$yesterday_missing" "$yesterday_partial"; do
     if [[ ! "$health_value" =~ ^[0-9]+$ ]]; then
       log ERROR "PostgreSQL returned invalid ingest health values"
       return 1
@@ -367,6 +382,9 @@ refresh_database_health_metrics() {
   RAW_ESTIMATED_ROWS="$raw_estimated_rows"
   RAW_TABLE_BYTES="$raw_table_bytes"
   RAW_RETENTION_OVERDUE_SECONDS="$raw_retention_overdue"
+  YESTERDAY_EXPECTED_TARGET_COUNT="$yesterday_expected"
+  YESTERDAY_MISSING_KPI_TARGET_COUNT="$yesterday_missing"
+  YESTERDAY_PARTIAL_KPI_TARGET_COUNT="$yesterday_partial"
 }
 
 ingest_window() {

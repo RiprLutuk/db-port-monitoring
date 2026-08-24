@@ -6,6 +6,12 @@ global:
 rule_files:
   - /etc/prometheus/alert-rules.yml
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
 scrape_configs:
   - job_name: "db-port-availability"
     metrics_path: /probe
@@ -33,3 +39,10 @@ scrape_configs:
     static_configs:
       - targets:
           - blackbox-pg-writer:8080
+
+  - job_name: "alertmanager"
+    scrape_interval: 30s
+    scrape_timeout: 5s
+    static_configs:
+      - targets:
+          - alertmanager:9093

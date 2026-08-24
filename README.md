@@ -249,8 +249,25 @@ Rule:
 - `BlackboxPGWriterProbeDataStale`: sample PostgreSQL lebih tua dari 15 menit
 - `BlackboxPGWriterTargetsMissing`: target aktif tidak punya sample recent
 - `BlackboxPGWriterSourceGap`: source window Prometheus kosong
+- `BlackboxPGWriterCycleSlow`: durasi cycle mendekati interval 5 menit
+- `BlackboxPGRawRetentionBehind`: cleanup raw melewati retention dan grace period
+- `BlackboxPGRawTableLarge`: raw table dan index melebihi 2 GiB
+- `BlackboxPGDailyKPIMissing`: target dashboard tidak punya KPI hari kemarin
+- `BlackboxPGDailyKPIPartial`: KPI hari kemarin tidak berisi 288 probe
+- `AlertmanagerDown`: Prometheus tidak dapat mengakses Alertmanager
+- `AlertmanagerTelegramDeliveryFailed`: pengiriman Telegram gagal
 
-Rule Prometheus sudah mendeteksi kondisi tersebut. Pengiriman notifikasi ke email, Slack, atau webhook tetap membutuhkan receiver Alertmanager yang sesuai dengan channel operasional perusahaan.
+Alertmanager aktif sebagai service terpisah dan mengirim FIRING/RESOLVED ke Telegram.
+`DBPortDown` mulai firing setelah 10 menit gagal dan diulang tiap 15 menit selama
+masih DOWN. Critical lain diulang tiap 1 jam, sedangkan alert non-critical tiap 4
+jam. Credential hanya disimpan di `.env` lokal dan dipasang ke container melalui
+`/run/secrets`; nilainya tidak disimpan dalam file konfigurasi atau Git.
+
+Konfigurasi receiver tersedia di:
+
+```text
+alertmanager/alertmanager.yml
+```
 
 ## Retention
 

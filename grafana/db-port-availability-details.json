@@ -1369,7 +1369,7 @@
       "id": 7,
       "type": "table",
       "title": "PROBE SUMMARY - PER DAY | ${month:text}",
-      "description": "Daily 5-minute probe totals for the selected server and period, newest day first.",
+      "description": "Daily 5-minute probe totals for the selected server and period. Coverage distinguishes complete, partial, and missing days.",
       "gridPos": {
         "h": 15,
         "w": 24,
@@ -1428,11 +1428,29 @@
                 "value": 100
               },
               {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "FULL": {
+                        "text": "FULL",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "PARTIAL": {
+                        "text": "PARTIAL",
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "NO DATA": {
+                        "text": "NO DATA",
+                        "color": "dark-gray",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "id": "custom.cellOptions",
@@ -1682,7 +1700,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::date\n      WHEN ${month:sqlstring} = '__all' THEN '-infinity'::date\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')\n    END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::date\n      WHEN ${month:sqlstring} = '__all' THEN 'infinity'::date\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day')::date\n    END AS to_date\n)\nSELECT\n  to_char(d.period_start, 'YYYY-MM-DD 00:00:00') AS \"Start Probe\",\n  CASE WHEN d.probes < 288 THEN 'partial' ELSE '' END AS \"Coverage\",\n  d.up_probes AS \"Number of Success\",\n  d.down_probes AS \"Number of Failed\",\n  (d.down_probes * 300)::bigint AS \"Downtime\",\n  round(d.up_probes::numeric / nullif(d.probes, 0) * 100, 1)::double precision AS \"Availability\"\nFROM monitoring.db_port_blackbox_daily_kpi d\nCROSS JOIN bounds b\nWHERE d.target_name = ${server:sqlstring}\n  AND d.period_start BETWEEN b.from_date AND b.to_date\nORDER BY d.period_start DESC;",
+          "rawSql": "WITH requested_bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::date\n      WHEN ${month:sqlstring} = '__all' THEN NULL::date\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')\n    END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::date\n      WHEN ${month:sqlstring} = '__all' THEN NULL::date\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day')::date\n    END AS to_date\n),\ntarget_bounds AS (\n  SELECT min(period_start) AS first_date, max(period_start) AS last_date\n  FROM monitoring.db_port_blackbox_daily_kpi\n  WHERE target_name = ${server:sqlstring}\n),\nbounds AS (\n  SELECT\n    CASE WHEN ${month:sqlstring} = '__all' THEN t.first_date ELSE r.from_date END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__all' THEN t.last_date\n      ELSE least(r.to_date, (now() AT TIME ZONE 'Asia/Jakarta')::date)\n    END AS to_date\n  FROM requested_bounds r\n  CROSS JOIN target_bounds t\n),\ndays AS (\n  SELECT day::date AS period_start\n  FROM bounds b\n  CROSS JOIN LATERAL generate_series(b.from_date, b.to_date, interval '1 day') AS day\n  WHERE b.from_date IS NOT NULL\n    AND b.to_date IS NOT NULL\n)\nSELECT\n  to_char(day.period_start, 'YYYY-MM-DD 00:00:00') AS \"Start Probe\",\n  CASE\n    WHEN d.period_start IS NULL THEN 'NO DATA'\n    WHEN d.probes < 288 THEN 'PARTIAL'\n    ELSE 'FULL'\n  END AS \"Coverage\",\n  d.up_probes AS \"Number of Success\",\n  d.down_probes AS \"Number of Failed\",\n  CASE WHEN d.period_start IS NULL THEN NULL ELSE (d.down_probes * 300)::bigint END AS \"Downtime\",\n  round(d.up_probes::numeric / nullif(d.probes, 0) * 100, 1)::double precision AS \"Availability\"\nFROM days AS day\nLEFT JOIN monitoring.db_port_blackbox_daily_kpi d\n  ON d.period_start = day.period_start\n AND d.target_name = ${server:sqlstring}\nORDER BY day.period_start DESC;",
           "refId": "A"
         }
       ]
@@ -2059,6 +2077,6 @@
   "timezone": "browser",
   "title": "DB Port Availability Details",
   "uid": "linknet-server-probe-history-sql",
-  "version": 11,
+  "version": 12,
   "weekStart": "monday"
 }

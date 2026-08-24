@@ -1,0 +1,49 @@
+global:
+  resolve_timeout: 5m
+  telegram_bot_token_file: /run/secrets/telegram_bot_token
+
+route:
+  receiver: telegram-db-monitoring
+  group_by:
+    - alertname
+    - severity
+    - category
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - receiver: telegram-db-monitoring
+      matchers:
+        - alertname="DBPortDown"
+        - severity="critical"
+      repeat_interval: 15m
+    - receiver: telegram-db-monitoring
+      matchers:
+        - severity="critical"
+      repeat_interval: 1h
+
+receivers:
+  - name: telegram-db-monitoring
+    telegram_configs:
+      - chat_id_file: /run/secrets/telegram_chat_id
+        send_resolved: true
+        parse_mode: ""
+        message: |-
+          {{ if eq .Status "firing" }}FIRING{{ else }}RESOLVED{{ end }} | {{ .CommonLabels.alertname }}
+          Severity: {{ .CommonLabels.severity }}
+          Category: {{ .CommonLabels.category }}
+          {{ range .Alerts -}}
+          Target: {{ or .Labels.db_name .Labels.instance "monitoring-stack" }}
+          Summary: {{ .Annotations.summary }}
+          Detail: {{ .Annotations.description }}
+          {{ end }}
+
+inhibit_rules:
+  - source_matchers:
+      - alertname="DBPortDown"
+      - severity="critical"
+    target_matchers:
+      - alertname="DBPortProbeSlow"
+      - severity="warning"
+    equal:
+      - instance
