@@ -73,6 +73,7 @@ services:
       WRITE_INTERVAL_SECONDS: ${WRITE_INTERVAL_SECONDS:-300}
       BLACKBOX_RAW_RETENTION_DAYS: ${BLACKBOX_RAW_RETENTION_DAYS:-30}
       BLACKBOX_REPORT_RETENTION_DAYS: ${BLACKBOX_REPORT_RETENTION_DAYS:-2192}
+      BLACKBOX_RETENTION_DELETE_BATCH_SIZE: ${BLACKBOX_RETENTION_DELETE_BATCH_SIZE:-10000}
       BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS: ${BLACKBOX_TARGET_INACTIVE_AFTER_SECONDS:-86400}
       BLACKBOX_RUN_MIGRATIONS: ${BLACKBOX_RUN_MIGRATIONS:-false}
       PROMETHEUS_QUERY_OVERLAP_SECONDS: ${PROMETHEUS_QUERY_OVERLAP_SECONDS:-180}
@@ -80,18 +81,20 @@ services:
       PROMETHEUS_INITIAL_BACKFILL_SECONDS: ${PROMETHEUS_INITIAL_BACKFILL_SECONDS:-3600}
       PROMETHEUS_MAX_BACKFILL_SECONDS: ${PROMETHEUS_MAX_BACKFILL_SECONDS:-1296000}
       PROMETHEUS_MAX_BACKFILL_CHUNKS_PER_CYCLE: ${PROMETHEUS_MAX_BACKFILL_CHUNKS_PER_CYCLE:-6}
+      WRITER_STATE_NAME: ${WRITER_STATE_NAME:-prometheus-blackbox}
       WRITER_METRICS_PORT: ${WRITER_METRICS_PORT:-8080}
+      BLACKBOX_DATA_FRESHNESS_SECONDS: ${BLACKBOX_DATA_FRESHNESS_SECONDS:-900}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       prometheus:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:$${WRITER_METRICS_PORT:-8080}/metrics >/dev/null"]
-      interval: 10s
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:$${WRITER_METRICS_PORT:-8080}/metrics | grep -q '^blackbox_pg_writer_data_healthy 1$'"]
+      interval: 30s
       timeout: 5s
-      retries: 6
-      start_period: 20s
+      retries: 3
+      start_period: 90s
     logging: *default-logging
     networks:
       - grafana_default

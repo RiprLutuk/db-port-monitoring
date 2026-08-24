@@ -18,6 +18,11 @@
 \set target_inactive_after_seconds 86400
 \endif
 
+\if :{?retention_delete_batch_size}
+\else
+\set retention_delete_batch_size 10000
+\endif
+
 BEGIN;
 
 SET LOCAL search_path TO pg_temp, :"schema_name";
@@ -246,11 +251,66 @@ ON CONFLICT (period_start, target_name) DO UPDATE SET
     ),
     updated_at = now();
 
-DELETE FROM :"schema_name".db_port_blackbox_probe_results
-WHERE checked_at < now() - (:'raw_retention_days' || ' days')::interval;
+-- Only newly inserted raw rows are processed, so the writer's overlapping
+-- Prometheus windows cannot increment an outage more than once.
+DO $process_outage_events$
+DECLARE
+    probe record;
+BEGIN
+    FOR probe IN
+        SELECT target_name, checked_at
+        FROM inserted_probe_rows
+        ORDER BY target_name, checked_at
+    LOOP
+        PERFORM record_db_port_blackbox_outage_sample(
+            probe.target_name,
+            probe.checked_at
+        );
+    END LOOP;
+END
+$process_outage_events$;
 
-DELETE FROM :"schema_name".db_port_blackbox_daily_kpi
-WHERE period_start < (current_date - :report_retention_days::int);
+-- Keep cleanup transactions bounded. In steady state this removes roughly one
+-- expired five-minute bucket per target; after an outage it catches up over
+-- multiple cycles instead of locking and vacuuming a very large delete at once.
+WITH expired AS (
+    SELECT id
+    FROM :"schema_name".db_port_blackbox_probe_results
+    WHERE checked_at < now() - (:'raw_retention_days' || ' days')::interval
+    ORDER BY checked_at
+    LIMIT :retention_delete_batch_size
+    FOR UPDATE SKIP LOCKED
+)
+DELETE FROM :"schema_name".db_port_blackbox_probe_results AS probe
+USING expired
+WHERE probe.id = expired.id;
+
+WITH expired AS (
+    SELECT period_start, target_name
+    FROM :"schema_name".db_port_blackbox_daily_kpi
+    WHERE period_start < (current_date - :report_retention_days::int)
+    ORDER BY period_start, target_name
+    LIMIT :retention_delete_batch_size
+    FOR UPDATE SKIP LOCKED
+)
+DELETE FROM :"schema_name".db_port_blackbox_daily_kpi AS kpi
+USING expired
+WHERE kpi.period_start = expired.period_start
+  AND kpi.target_name = expired.target_name;
+
+WITH expired AS (
+    SELECT target_name, down_start
+    FROM :"schema_name".db_port_blackbox_downtime_events
+    WHERE coalesce(down_end, last_down_at) <
+        now() - (:'report_retention_days' || ' days')::interval
+    ORDER BY coalesce(down_end, last_down_at), target_name, down_start
+    LIMIT :retention_delete_batch_size
+    FOR UPDATE SKIP LOCKED
+)
+DELETE FROM :"schema_name".db_port_blackbox_downtime_events AS event
+USING expired
+WHERE event.target_name = expired.target_name
+  AND event.down_start = expired.down_start;
 
 SELECT count(*)::bigint AS inserted_probe_rows
 FROM inserted_probe_rows;

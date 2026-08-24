@@ -1,0 +1,2064 @@
+{
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "12.4.0"
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "PostgreSQL",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "canvas",
+      "name": "Canvas",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "bargauge",
+      "name": "Bar gauge",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Historical DB-port view for one server with compact KPI cards, contextual subtitles, progress bars, daily summary, and latest failed probes.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "KPI Overview",
+      "tooltip": "Back to main DB availability dashboard",
+      "type": "link",
+      "url": "/d/db-port-kpi-executive-reporting-sql"
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "",
+      "description": "Inventory metadata and the latest stored TCP probe for the selected server.",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hostname"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "IP Address"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Port"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              },
+              {
+                "id": "custom.align",
+                "value": "center"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Current Status"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "UP": {
+                        "text": "UP",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "DOWN": {
+                        "text": "DOWN",
+                        "color": "red",
+                        "index": 1
+                      },
+                      "STALE": {
+                        "text": "STALE",
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "pill"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "md",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  t.target_name AS \"Hostname\",\n  t.host AS \"IP Address\",\n  t.port AS \"Port\",\n  t.db_type AS \"DB Type\",\n  t.environment AS \"Environment\",\n  CASE\n    WHEN latest.checked_at IS NULL OR latest.checked_at < now() - interval '10 minutes' THEN 'STALE'\n    WHEN latest.is_up = 1 THEN 'UP'\n    ELSE 'DOWN'\n  END AS \"Current Status\"\nFROM monitoring.db_port_blackbox_targets t\nLEFT JOIN LATERAL (\n  SELECT r.checked_at, r.is_up\n  FROM monitoring.db_port_blackbox_probe_results r\n  WHERE r.target_name = t.target_name\n  ORDER BY r.checked_at DESC\n  LIMIT 1\n) latest ON true\nWHERE t.target_name = ${server:sqlstring};",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "canvas",
+      "title": "TOTAL PROBES",
+      "description": "Observed 5-minute probes in the selected month or Grafana time range.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 3
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "text",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "locale"
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#d8d9da"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 34
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 2,
+                "left": 16,
+                "right": 12,
+                "height": 50,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e8e8e"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 11
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 52,
+                "left": 16,
+                "right": 12,
+                "height": 20,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
+        },
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::date\n      WHEN ${month:sqlstring} = '__all' THEN '-infinity'::date\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')\n    END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::date\n      WHEN ${month:sqlstring} = '__all' THEN 'infinity'::date\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day')::date\n    END AS to_date\n)\nSELECT\n  coalesce(sum(d.probes), 0)::bigint AS value,\n  CASE WHEN coalesce(sum(d.probes), 0) > 0 THEN 100.0 ELSE 0.0 END AS progress,\n  CASE\n    WHEN ${month:sqlstring} = '__all' THEN 'seluruh history - interval 5 menit'\n    WHEN ${month:sqlstring} = '__range' THEN greatest(ceil(extract(epoch FROM ($__timeTo()::timestamptz - $__timeFrom()::timestamptz)) / 86400.0)::integer, 1)::text || ' hari - interval 5 menit'\n    ELSE extract(day FROM (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day'))::integer::text || ' hari - interval 5 menit'\n  END AS subtitle\nFROM monitoring.db_port_blackbox_daily_kpi d\nCROSS JOIN bounds b\nWHERE d.target_name = ${server:sqlstring}\n  AND d.period_start BETWEEN b.from_date AND b.to_date;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "canvas",
+      "title": "SUCCESS PROBES",
+      "description": "Observed probes where the TCP connection succeeded.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 4,
+        "y": 3
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "locale"
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#73bf69"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 34
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 2,
+                "left": 16,
+                "right": 12,
+                "height": 50,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e8e8e"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 11
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 52,
+                "left": 16,
+                "right": 12,
+                "height": 20,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
+        },
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::date\n      WHEN ${month:sqlstring} = '__all' THEN '-infinity'::date\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')\n    END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::date\n      WHEN ${month:sqlstring} = '__all' THEN 'infinity'::date\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day')::date\n    END AS to_date\n)\nSELECT\n  coalesce(sum(d.up_probes), 0)::bigint AS value,\n  coalesce(round(sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100, 2), 0)::double precision AS progress,\n  'port responded'::text AS subtitle\nFROM monitoring.db_port_blackbox_daily_kpi d\nCROSS JOIN bounds b\nWHERE d.target_name = ${server:sqlstring}\n  AND d.period_start BETWEEN b.from_date AND b.to_date;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "canvas",
+      "title": "FAILED PROBES",
+      "description": "Observed probes where the TCP connection failed.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 9,
+        "y": 3
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "unit": "locale"
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f2495c"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 34
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 2,
+                "left": 16,
+                "right": 12,
+                "height": 50,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e8e8e"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 11
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 52,
+                "left": 16,
+                "right": 12,
+                "height": 20,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
+        },
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::date\n      WHEN ${month:sqlstring} = '__all' THEN '-infinity'::date\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')\n    END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::date\n      WHEN ${month:sqlstring} = '__all' THEN 'infinity'::date\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day')::date\n    END AS to_date\n)\nSELECT\n  coalesce(sum(d.down_probes), 0)::bigint AS value,\n  coalesce(round(sum(d.down_probes)::numeric / nullif(sum(d.probes), 0) * 100, 2), 0)::double precision AS progress,\n  'timeout / connection refused'::text AS subtitle\nFROM monitoring.db_port_blackbox_daily_kpi d\nCROSS JOIN bounds b\nWHERE d.target_name = ${server:sqlstring}\n  AND d.period_start BETWEEN b.from_date AND b.to_date;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "canvas",
+      "title": "TOTAL DOWNTIME",
+      "description": "Failed samples multiplied by the 5-minute collection interval. Missing samples are not counted as downtime.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 14,
+        "y": 3
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "unit": "string"
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f2495c"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 34
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 2,
+                "left": 16,
+                "right": 12,
+                "height": 50,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e8e8e"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 11
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 52,
+                "left": 16,
+                "right": 12,
+                "height": 20,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
+        },
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::date\n      WHEN ${month:sqlstring} = '__all' THEN '-infinity'::date\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')\n    END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::date\n      WHEN ${month:sqlstring} = '__all' THEN 'infinity'::date\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day')::date\n    END AS to_date\n), totals AS (\n  SELECT\n    coalesce(sum(d.down_probes), 0)::bigint AS failed_probes,\n    coalesce(sum(d.probes), 0)::bigint AS probes\n  FROM monitoring.db_port_blackbox_daily_kpi d\n  CROSS JOIN bounds b\n  WHERE d.target_name = ${server:sqlstring}\n    AND d.period_start BETWEEN b.from_date AND b.to_date\n), duration AS (\n  SELECT failed_probes, probes, failed_probes * 5 AS failed_minutes\n  FROM totals\n)\nSELECT\n  CASE\n    WHEN failed_minutes = 0 THEN '0m'\n    WHEN failed_minutes >= 1440 THEN\n      (failed_minutes / 1440)::text || 'd ' || ((failed_minutes % 1440) / 60)::text || 'h' ||\n      CASE WHEN failed_minutes % 60 > 0 THEN ' ' || (failed_minutes % 60)::text || 'm' ELSE '' END\n    WHEN failed_minutes >= 60 THEN\n      (failed_minutes / 60)::text || 'h' ||\n      CASE WHEN failed_minutes % 60 > 0 THEN ' ' || (failed_minutes % 60)::text || 'm' ELSE '' END\n    ELSE failed_minutes::text || 'm'\n  END AS value,\n  coalesce(round(failed_probes::numeric / nullif(probes, 0) * 100, 2), 0)::double precision AS progress,\n  failed_probes::text || ' failed samples - interval 5 menit' AS subtitle\nFROM duration;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "canvas",
+      "title": "",
+      "description": "Successful observed probes divided by all observed probes for the selected period.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 3
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "semi-dark-yellow",
+            "mode": "fixed"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "panZoom": false,
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "Background",
+              "type": "rectangle",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "transparent"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                },
+                "size": 1
+              },
+              "constraint": {
+                "vertical": "topbottom",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 0,
+                "bottom": 0,
+                "left": 0,
+                "right": 0,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1a1608"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "KPI Period",
+              "type": "rectangle",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f5a623"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "badge"
+                },
+                "size": 9
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "left"
+              },
+              "placement": {
+                "top": 8,
+                "left": 16,
+                "width": 145,
+                "height": 18,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3a2c08"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#5a4410"
+                },
+                "width": 1,
+                "radius": 3
+              },
+              "links": []
+            },
+            {
+              "name": "Label",
+              "type": "text",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f5a623"
+                },
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "AVAILABILITY"
+                },
+                "size": 11
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 28,
+                "left": 16,
+                "right": 12,
+                "height": 16,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Value",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f5a623"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "value"
+                },
+                "size": 34
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 43,
+                "left": 16,
+                "right": 12,
+                "height": 45,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            },
+            {
+              "name": "Subtitle",
+              "type": "metric-value",
+              "config": {
+                "align": "left",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#8e6b20"
+                },
+                "text": {
+                  "mode": "field",
+                  "fixed": "",
+                  "field": "subtitle"
+                },
+                "size": 10
+              },
+              "constraint": {
+                "vertical": "top",
+                "horizontal": "leftright"
+              },
+              "placement": {
+                "top": 88,
+                "left": 16,
+                "right": 12,
+                "height": 18,
+                "rotation": 0
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "links": []
+            }
+          ]
+        },
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "none"
+        },
+        "zoomToContent": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::date\n      WHEN ${month:sqlstring} = '__all' THEN '-infinity'::date\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')\n    END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::date\n      WHEN ${month:sqlstring} = '__all' THEN 'infinity'::date\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day')::date\n    END AS to_date\n)\nSELECT\n  coalesce(round(sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100, 2), 0)::double precision AS value,\n  coalesce(round(sum(d.up_probes)::numeric / nullif(sum(d.probes), 0) * 100, 2), 0)::double precision AS progress,\n  'simple average'::text AS subtitle,\n  CASE\n    WHEN ${month:sqlstring} = '__all' THEN 'KPI - ALL HISTORY'\n    WHEN ${month:sqlstring} = '__range' THEN 'KPI - ' || greatest(ceil(extract(epoch FROM ($__timeTo()::timestamptz - $__timeFrom()::timestamptz)) / 86400.0)::integer, 1)::text || ' DAYS'\n    ELSE 'KPI - ' || extract(day FROM (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day'))::integer::text || ' DAYS'\n  END AS badge\nFROM monitoring.db_port_blackbox_daily_kpi d\nCROSS JOIN bounds b\nWHERE d.target_name = ${server:sqlstring}\n  AND d.period_start BETWEEN b.from_date AND b.to_date;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 4,
+        "x": 0,
+        "y": 7
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-gray",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-gray",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 2,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 5,
+        "x": 4,
+        "y": 7
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 3,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 5,
+        "x": 9,
+        "y": 7
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 4,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 5,
+        "x": 14,
+        "y": 7
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 5,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 1,
+        "w": 5,
+        "x": 19,
+        "y": 7
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "max": 100,
+          "min": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "maxVizHeight": 4,
+        "minVizHeight": 4,
+        "minVizWidth": 8,
+        "namePlacement": "hidden",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^progress$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "manual",
+        "valueMode": "hidden"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "-- Dashboard --"
+          },
+          "panelId": 6,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "PROBE SUMMARY - PER DAY | ${month:text}",
+      "description": "Daily 5-minute probe totals for the selected server and period, newest day first.",
+      "gridPos": {
+        "h": 15,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Start Probe"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coverage"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "pill"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Number of Success"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              },
+              {
+                "id": "unit",
+                "value": "locale"
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Number of Failed"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              },
+              {
+                "id": "unit",
+                "value": "locale"
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "-",
+                        "color": "text",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Downtime"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 180
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "-",
+                        "color": "text",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Availability"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.width",
+                "value": 260
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 80
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 95
+                    },
+                    {
+                      "color": "green",
+                      "value": 99
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "md",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": [
+            "Number of Success",
+            "Number of Failed",
+            "Downtime"
+          ],
+          "reducer": [
+            "sum"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Start Probe"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::date\n      WHEN ${month:sqlstring} = '__all' THEN '-infinity'::date\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')\n    END AS from_date,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::date\n      WHEN ${month:sqlstring} = '__all' THEN 'infinity'::date\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month - 1 day')::date\n    END AS to_date\n)\nSELECT\n  to_char(d.period_start, 'YYYY-MM-DD 00:00:00') AS \"Start Probe\",\n  CASE WHEN d.probes < 288 THEN 'partial' ELSE '' END AS \"Coverage\",\n  d.up_probes AS \"Number of Success\",\n  d.down_probes AS \"Number of Failed\",\n  (d.down_probes * 300)::bigint AS \"Downtime\",\n  round(d.up_probes::numeric / nullif(d.probes, 0) * 100, 1)::double precision AS \"Availability\"\nFROM monitoring.db_port_blackbox_daily_kpi d\nCROSS JOIN bounds b\nWHERE d.target_name = ${server:sqlstring}\n  AND d.period_start BETWEEN b.from_date AND b.to_date\nORDER BY d.period_start DESC;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "DOWNTIME EVENTS | ${incident_count:text}",
+      "description": "One row per contiguous DOWN incident. Open-event duration is bounded by the latest failed sample plus five minutes, so missing data does not create unlimited downtime. Partial means the incident began before the oldest raw sample available during initial reconstruction.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "grafana-postgresql-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+            "options": "Down Start"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:YYYY-MM-DD HH:mm:ss"
+              },
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Recovered At"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:YYYY-MM-DD HH:mm:ss"
+              },
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Port"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              },
+              {
+                "id": "custom.align",
+                "value": "center"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+            "options": "Status"
+          },
+          "properties": [
+            {
+              "id": "custom.width",
+              "value": 110
+            },
+            {
+              "id": "mappings",
+              "value": [
+                {
+                  "type": "value",
+                  "options": {
+                    "OPEN": {
+                      "text": "OPEN",
+                      "color": "red",
+                      "index": 0
+                    },
+                    "RECOVERED": {
+                      "text": "RECOVERED",
+                      "color": "green",
+                      "index": 1
+                    },
+                    "PARTIAL": {
+                      "text": "PARTIAL",
+                      "color": "orange",
+                      "index": 2
+                    },
+                    "ESTIMATED": {
+                      "text": "ESTIMATED",
+                      "color": "yellow",
+                      "index": 3
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "custom.cellOptions",
+              "value": {
+                "type": "color-background",
+                "mode": "basic"
+              }
+            }
+          ]
+        },
+        {
+          "matcher": {
+            "id": "byName",
+            "options": "Duration"
+          },
+          "properties": [
+            {
+              "id": "unit",
+              "value": "s"
+            },
+            {
+              "id": "decimals",
+              "value": 0
+            },
+            {
+              "id": "custom.width",
+              "value": 120
+            }
+          ]
+        },
+        {
+          "matcher": {
+            "id": "byName",
+            "options": "Failed Samples"
+          },
+          "properties": [
+            {
+              "id": "custom.width",
+              "value": 120
+            },
+            {
+              "id": "custom.align",
+              "value": "center"
+            }
+          ]
+        },
+        {
+          "matcher": {
+            "id": "byName",
+            "options": "Coverage"
+          },
+          "properties": [
+            {
+              "id": "custom.width",
+              "value": 100
+            },
+            {
+              "id": "mappings",
+              "value": [
+                {
+                  "type": "value",
+                  "options": {
+                    "exact": {
+                      "text": "exact",
+                      "color": "green",
+                      "index": 0
+                    },
+                    "observed": {
+                      "text": "observed",
+                      "color": "blue",
+                      "index": 1
+                    },
+                    "estimated": {
+                      "text": "estimated",
+                      "color": "yellow",
+                      "index": 2
+                    },
+                    "partial": {
+                      "text": "partial",
+                      "color": "orange",
+                      "index": 3
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "custom.cellOptions",
+              "value": {
+                "type": "pill"
+              }
+            }
+          ]
+        },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Error Detail"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "md",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": [
+            "Down Start"
+          ],
+          "reducer": [
+            "count"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Down Start"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\n  SELECT\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::timestamptz\n      WHEN ${month:sqlstring} = '__all' THEN '-infinity'::timestamptz\n      ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')::timestamptz\n    END AS from_at,\n    CASE\n      WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::timestamptz\n      WHEN ${month:sqlstring} = '__all' THEN 'infinity'::timestamptz\n      ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month')::timestamptz\n    END AS to_at\n), latest_events AS (\n  SELECT\n    e.*,\n    coalesce(e.down_end, least(now(), e.last_down_at + interval '5 minutes')) AS observed_end\n  FROM monitoring.db_port_blackbox_downtime_events e\n  CROSS JOIN bounds b\n  WHERE e.target_name = ${server:sqlstring}\n    AND e.down_start < b.to_at\n    AND coalesce(e.down_end, least(now(), e.last_down_at + interval '5 minutes')) > b.from_at\n  ORDER BY e.down_start DESC\n  LIMIT 200\n)\nSELECT\n  e.down_start AS \"Down Start\",\n  e.down_end AS \"Recovered At\",\n  e.port AS \"Port\",\n  CASE\n    WHEN e.down_end IS NULL THEN 'OPEN'\n    WHEN e.source = 'daily-kpi-estimated-00-03' THEN 'ESTIMATED'\n    WHEN e.source = 'opmanager-exact-clipped' THEN 'PARTIAL'\n    ELSE 'RECOVERED'\n  END AS \"Status\",\n  extract(epoch FROM e.observed_end - e.down_start)::bigint AS \"Duration\",\n  e.down_samples AS \"Failed Samples\",\n  CASE\n    WHEN e.source = 'opmanager-exact' THEN 'exact'\n    WHEN e.source = 'daily-kpi-estimated-00-03' THEN 'estimated'\n    WHEN e.source = 'opmanager-exact-clipped' OR e.started_before_retention THEN 'partial'\n    ELSE 'observed'\n  END AS \"Coverage\",\n  coalesce(nullif(btrim(e.first_error_text), ''), nullif(btrim(e.last_error_text), ''), 'blackbox probe failed') AS \"Error Detail\"\nFROM latest_events e\nORDER BY e.down_start DESC;",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 41,
+  "tags": [
+    "database",
+    "blackbox",
+    "availability",
+    "history",
+    "server-detail"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "SELECT t.target_name AS __text, t.target_name AS __value FROM monitoring.db_port_blackbox_targets t ORDER BY lower(t.target_name);",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Server",
+        "multi": false,
+        "name": "server",
+        "options": [],
+        "query": "SELECT t.target_name AS __text, t.target_name AS __value FROM monitoring.db_port_blackbox_targets t ORDER BY lower(t.target_name);",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "Time range",
+          "value": "__range"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "WITH options AS (SELECT 0 AS sort_order, 'Time range' AS __text, '__range' AS __value UNION ALL SELECT 1, 'All history', '__all' UNION ALL SELECT DISTINCT 2, to_char(period_start, 'YYYY-MM'), to_char(period_start, 'YYYY-MM') FROM monitoring.db_port_blackbox_daily_kpi WHERE target_name = ${server:sqlstring}) SELECT __text, __value FROM options ORDER BY sort_order, __value DESC;",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Period",
+        "multi": false,
+        "name": "month",
+        "options": [],
+        "query": "WITH options AS (SELECT 0 AS sort_order, 'Time range' AS __text, '__range' AS __value UNION ALL SELECT 1, 'All history', '__all' UNION ALL SELECT DISTINCT 2, to_char(period_start, 'YYYY-MM'), to_char(period_start, 'YYYY-MM') FROM monitoring.db_port_blackbox_daily_kpi WHERE target_name = ${server:sqlstring}) SELECT __text, __value FROM options ORDER BY sort_order, __value DESC;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "postgres",
+          "uid": "grafana-postgresql-datasource"
+        },
+        "definition": "WITH bounds AS (SELECT CASE WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::timestamptz WHEN ${month:sqlstring} = '__all' THEN '-infinity'::timestamptz ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')::timestamptz END AS from_at, CASE WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::timestamptz WHEN ${month:sqlstring} = '__all' THEN 'infinity'::timestamptz ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month')::timestamptz END AS to_at), incidents AS (SELECT count(*)::bigint AS total FROM monitoring.db_port_blackbox_downtime_events e CROSS JOIN bounds b WHERE e.target_name = ${server:sqlstring} AND e.down_start < b.to_at AND coalesce(e.down_end, least(now(), e.last_down_at + interval '5 minutes')) > b.from_at) SELECT total::text || ' incidents - showing ' || least(total, 200)::text AS __text, total::text AS __value FROM incidents;",
+        "hide": 2,
+        "includeAll": false,
+        "label": "Incident Count",
+        "multi": false,
+        "name": "incident_count",
+        "options": [],
+        "query": "WITH bounds AS (SELECT CASE WHEN ${month:sqlstring} = '__range' THEN $__timeFrom()::timestamptz WHEN ${month:sqlstring} = '__all' THEN '-infinity'::timestamptz ELSE to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD')::timestamptz END AS from_at, CASE WHEN ${month:sqlstring} = '__range' THEN $__timeTo()::timestamptz WHEN ${month:sqlstring} = '__all' THEN 'infinity'::timestamptz ELSE (to_date(${month:sqlstring} || '-01', 'YYYY-MM-DD') + interval '1 month')::timestamptz END AS to_at), incidents AS (SELECT count(*)::bigint AS total FROM monitoring.db_port_blackbox_downtime_events e CROSS JOIN bounds b WHERE e.target_name = ${server:sqlstring} AND e.down_start < b.to_at AND coalesce(e.down_end, least(now(), e.last_down_at + interval '5 minutes')) > b.from_at) SELECT total::text || ' incidents - showing ' || least(total, 200)::text AS __text, total::text AS __value FROM incidents;",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "DB Port Availability Details",
+  "uid": "linknet-server-probe-history-sql",
+  "version": 11,
+  "weekStart": "monday"
+}

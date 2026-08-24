@@ -28,14 +28,17 @@ Commands:
   logs [service]            Follow logs. Optional service: prometheus, blackbox-exporter, blackbox-pg-writer
   build-writer              Build blackbox-pg-writer image
   validate                  Validate shell scripts and Prometheus config/rules
+  verify                    Verify live Prometheus-to-PostgreSQL completeness
   reload                    Reload Prometheus config
   targets                   Show active Prometheus targets
   probe [host:port]         Run one Blackbox TCP probe
   query                     Query probe_success from Prometheus
-  pg-schema                 Run PostgreSQL schema migration
+  pg-schema                 Run PostgreSQL schema and outage-event migrations
+  outage-events             Create/backfill compact downtime events
+  storage-guards            Apply bounded-growth PostgreSQL maintenance settings
   normalize-environment     Normalize legacy QA/UAT rows to DEV
   normalize-5m              Normalize existing raw history and KPI to 5-minute buckets
-  cleanup-unused            Drop tables not used by the KPI dashboard
+  cleanup-unused            Drop tables not used by active dashboards
   writer-start              Recreate/start writer only
   writer-stop               Stop writer only
   writer-restart            Restart writer only
@@ -101,6 +104,12 @@ case "$cmd" in
       "$PROMETHEUS_IMAGE" check rules /etc/prometheus/alert-rules.yml
     ;;
 
+  verify)
+    compose run --rm --no-deps \
+      --entrypoint /workspace/scripts/verify-blackbox-pipeline.sh \
+      blackbox-pg-writer
+    ;;
+
   reload)
     curl -sf -X POST "${PROMETHEUS_URL}/-/reload"
     echo "Prometheus reload requested."
@@ -124,7 +133,22 @@ case "$cmd" in
   pg-schema)
     compose run --rm --no-deps \
       --entrypoint /workspace/scripts/run-psql.sh \
-      blackbox-pg-writer -f /workspace/sql/001_blackbox_pg_schema.sql
+      blackbox-pg-writer \
+      -f /workspace/sql/001_blackbox_pg_schema.sql \
+      -f /workspace/sql/008_outage_events.sql \
+      -f /workspace/sql/012_storage_scalability_guards.sql
+    ;;
+
+  outage-events)
+    compose run --rm --no-deps \
+      --entrypoint /workspace/scripts/run-psql.sh \
+      blackbox-pg-writer -f /workspace/sql/008_outage_events.sql
+    ;;
+
+  storage-guards)
+    compose run --rm --no-deps \
+      --entrypoint /workspace/scripts/run-psql.sh \
+      blackbox-pg-writer -f /workspace/sql/012_storage_scalability_guards.sql
     ;;
 
   normalize-environment)

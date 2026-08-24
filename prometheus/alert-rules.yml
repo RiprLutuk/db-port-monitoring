@@ -88,3 +88,69 @@ groups:
         annotations:
           summary: "Blackbox PostgreSQL writer has a backfill backlog"
           description: "Backlog ingest PostgreSQL masih lebih dari 10 menit selama sedikitnya 5 menit."
+
+      - alert: BlackboxPGWriterProbeDataStale
+        expr: blackbox_pg_writer_latest_probe_timestamp_seconds == 0 or time() - blackbox_pg_writer_latest_probe_timestamp_seconds > 900
+        for: 1m
+        labels:
+          severity: critical
+          category: ingest
+          team: dba
+        annotations:
+          summary: "Blackbox PostgreSQL probe data is stale"
+          description: "Sample probe terbaru di PostgreSQL lebih lama dari 15 menit atau belum pernah tersimpan."
+
+      - alert: BlackboxPGWriterTargetsMissing
+        expr: blackbox_pg_writer_missing_recent_targets > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: ingest
+          team: dba
+        annotations:
+          summary: "Active DB targets are missing recent PostgreSQL samples"
+          description: "{{ $value }} target aktif tidak memiliki sample PostgreSQL dalam 10 menit terakhir."
+
+      - alert: BlackboxPGWriterSourceGap
+        expr: blackbox_pg_writer_empty_windows_last_cycle > 0
+        for: 1m
+        labels:
+          severity: warning
+          category: ingest
+          team: dba
+        annotations:
+          summary: "Prometheus source window had no DB probe samples"
+          description: "Writer melewati source window kosong tanpa membuat data palsu. Periksa Prometheus dan resource host."
+
+      - alert: BlackboxPGWriterCycleSlow
+        expr: blackbox_pg_writer_cycle_duration_seconds > blackbox_pg_writer_interval_seconds * 0.8
+        for: 10m
+        labels:
+          severity: warning
+          category: capacity
+          team: dba
+        annotations:
+          summary: "Blackbox PostgreSQL writer cycle is nearing its interval"
+          description: "Durasi cycle writer sudah memakai lebih dari 80% interval selama 10 menit. Periksa PostgreSQL, jumlah target, dan backlog."
+
+      - alert: BlackboxPGRawRetentionBehind
+        expr: blackbox_pg_writer_raw_retention_overdue_seconds > 3600
+        for: 15m
+        labels:
+          severity: warning
+          category: capacity
+          team: dba
+        annotations:
+          summary: "Blackbox PostgreSQL raw retention is behind"
+          description: "Raw probe tertua melewati batas retention lebih dari satu jam. Cleanup dibatasi per batch; periksa writer dan autovacuum jika nilainya terus naik."
+
+      - alert: BlackboxPGRawTableLarge
+        expr: blackbox_pg_writer_raw_table_bytes > 2147483648
+        for: 1h
+        labels:
+          severity: warning
+          category: capacity
+          team: dba
+        annotations:
+          summary: "Blackbox PostgreSQL raw table exceeds 2 GiB"
+          description: "Ukuran raw probe beserta index melebihi 2 GiB. Verifikasi jumlah target, retention 30 hari, tablespace, dan kapasitas disk."
