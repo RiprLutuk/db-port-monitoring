@@ -392,7 +392,8 @@ ingest_window() {
   local window_end_epoch="$2"
   local lookback_seconds=$((window_end_epoch - window_start_epoch))
   local success_json duration_json success_tsv duration_tsv stage_file ingest_sql
-  local source_sample_count fetched_count duplicate_key stage_file_sql psql_output inserted_count
+  local source_sample_count fetched_count duplicate_key endpoint_changes
+  local stage_file_sql psql_output inserted_count
 
   success_json="$(mktemp)"
   duration_json="$(mktemp)"
@@ -453,17 +454,47 @@ ingest_window() {
 
   if ! jq -e '
     [
+      .data.result[] |
+      select((.values | length) > 0) |
+      {
+        target: .metric.db_name,
+        instance: .metric.instance,
+        first: (.values[0][0] | tonumber),
+        last: (.values[-1][0] | tonumber)
+      }
+    ]
+    | group_by(.target)
+    | map(
+        . as $series |
+        [
+          range(0; $series | length) as $left |
+          range($left + 1; $series | length) as $right |
+          select(
+            $series[$left].instance != $series[$right].instance and
+            $series[$left].first <= $series[$right].last and
+            $series[$right].first <= $series[$left].last
+          )
+        ] | length
+      )
+    | (add // 0) == 0
+  ' "$success_json" >/dev/null; then
+    log ERROR "A db_name has overlapping instances in Prometheus"
+    cleanup_window_files
+    return 1
+  fi
+
+  endpoint_changes="$(jq -r '
+    [
       .data.result[].metric |
       {target: .db_name, instance: .instance}
     ]
     | unique_by([.target, .instance])
     | group_by(.target)
-    | map(select(length > 1))
-    | length == 0
-  ' "$success_json" >/dev/null; then
-    log ERROR "A db_name maps to more than one instance in Prometheus"
-    cleanup_window_files
-    return 1
+    | map(select(length > 1) | .[0].target)
+    | join(", ")
+  ' "$success_json")"
+  if [[ -n "$endpoint_changes" ]]; then
+    log WARN "Sequential endpoint change detected for db_name: ${endpoint_changes}"
   fi
 
   source_sample_count="$(jq '[.data.result[].values[]] | length' "$success_json")"
