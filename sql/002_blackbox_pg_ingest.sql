@@ -160,28 +160,77 @@ WITH inserted AS (
 )
 SELECT * FROM inserted;
 
-WITH daily AS (
+-- Recompute every affected target-day from all retained raw rows. Prometheus may
+-- briefly return the old and new scrape phase after an endpoint change, so raw
+-- row counts are not guaranteed to equal the five-minute reporting cadence.
+CREATE TEMP TABLE affected_target_days ON COMMIT DROP AS
+SELECT DISTINCT
+    checked_at::date AS period_start,
+    target_name
+FROM inserted_probe_rows;
+
+CREATE UNIQUE INDEX ON affected_target_days (period_start, target_name);
+
+WITH normalized_five_minute AS (
     SELECT
-        checked_at::date AS period_start,
+        affected.period_start,
+        probe.target_name,
+        date_bin(
+            interval '5 minutes',
+            probe.checked_at,
+            timestamptz '2001-01-01 00:00:00+00'
+        ) AS bucket_start,
+        (array_agg(probe.db_type ORDER BY probe.checked_at DESC))[1] AS db_type,
+        (array_agg(probe.environment ORDER BY probe.checked_at DESC))[1] AS environment,
+        (array_agg(probe.host ORDER BY probe.checked_at DESC))[1] AS host,
+        (array_agg(probe.port ORDER BY probe.checked_at DESC))[1] AS port,
+        (array_agg(probe.instance ORDER BY probe.checked_at DESC))[1] AS instance,
+        (array_agg(probe.criticality ORDER BY probe.checked_at DESC))[1] AS criticality,
+        (array_agg(probe.team ORDER BY probe.checked_at DESC))[1] AS team,
+        min(probe.is_up) AS is_up,
+        CASE
+            WHEN min(probe.is_up) = 1
+            THEN avg(probe.latency_ms) FILTER (WHERE probe.latency_ms IS NOT NULL)
+            ELSE NULL
+        END AS latency_ms,
+        min(probe.checked_at) AS first_probe_at,
+        max(probe.checked_at) AS last_probe_at
+    FROM affected_target_days affected
+    INNER JOIN :"schema_name".db_port_blackbox_probe_results probe
+        ON probe.target_name = affected.target_name
+       AND probe.checked_at >= affected.period_start::timestamptz
+       AND probe.checked_at < (affected.period_start + 1)::timestamptz
+    GROUP BY
+        affected.period_start,
+        probe.target_name,
+        date_bin(
+            interval '5 minutes',
+            probe.checked_at,
+            timestamptz '2001-01-01 00:00:00+00'
+        )
+),
+daily AS (
+    SELECT
+        period_start,
         target_name,
-        max(db_type) AS db_type,
-        max(environment) AS environment,
-        max(host) AS host,
-        max(port) AS port,
-        max(instance) AS instance,
-        max(criticality) AS criticality,
-        max(team) AS team,
+        (array_agg(db_type ORDER BY last_probe_at DESC))[1] AS db_type,
+        (array_agg(environment ORDER BY last_probe_at DESC))[1] AS environment,
+        (array_agg(host ORDER BY last_probe_at DESC))[1] AS host,
+        (array_agg(port ORDER BY last_probe_at DESC))[1] AS port,
+        (array_agg(instance ORDER BY last_probe_at DESC))[1] AS instance,
+        (array_agg(criticality ORDER BY last_probe_at DESC))[1] AS criticality,
+        (array_agg(team ORDER BY last_probe_at DESC))[1] AS team,
         count(*)::bigint AS probes,
-        sum(CASE WHEN is_up = 1 THEN 1 ELSE 0 END)::bigint AS up_probes,
-        sum(CASE WHEN is_up = 0 THEN 1 ELSE 0 END)::bigint AS down_probes,
+        count(*) FILTER (WHERE is_up = 1)::bigint AS up_probes,
+        count(*) FILTER (WHERE is_up = 0)::bigint AS down_probes,
         count(*) FILTER (WHERE is_up = 1 AND latency_ms > 3000)::bigint AS slow_probes,
         coalesce(sum(latency_ms) FILTER (WHERE is_up = 1 AND latency_ms IS NOT NULL), 0) AS latency_ms_sum,
         count(latency_ms) FILTER (WHERE is_up = 1)::bigint AS latency_ms_count,
         max(latency_ms) FILTER (WHERE is_up = 1) AS max_latency_ms,
-        min(checked_at) AS first_probe_at,
-        max(checked_at) AS last_probe_at
-    FROM inserted_probe_rows
-    GROUP BY checked_at::date, target_name
+        min(first_probe_at) AS first_probe_at,
+        max(last_probe_at) AS last_probe_at
+    FROM normalized_five_minute
+    GROUP BY period_start, target_name
 )
 INSERT INTO :"schema_name".db_port_blackbox_daily_kpi AS kpi (
     period_start,
@@ -231,24 +280,15 @@ ON CONFLICT (period_start, target_name) DO UPDATE SET
     instance = EXCLUDED.instance,
     criticality = EXCLUDED.criticality,
     team = EXCLUDED.team,
-    probes = kpi.probes + EXCLUDED.probes,
-    up_probes = kpi.up_probes + EXCLUDED.up_probes,
-    down_probes = kpi.down_probes + EXCLUDED.down_probes,
-    slow_probes = kpi.slow_probes + EXCLUDED.slow_probes,
-    latency_ms_sum = kpi.latency_ms_sum + EXCLUDED.latency_ms_sum,
-    latency_ms_count = kpi.latency_ms_count + EXCLUDED.latency_ms_count,
-    max_latency_ms = greatest(
-        coalesce(kpi.max_latency_ms, EXCLUDED.max_latency_ms),
-        EXCLUDED.max_latency_ms
-    ),
-    first_probe_at = least(
-        coalesce(kpi.first_probe_at, EXCLUDED.first_probe_at),
-        EXCLUDED.first_probe_at
-    ),
-    last_probe_at = greatest(
-        coalesce(kpi.last_probe_at, EXCLUDED.last_probe_at),
-        EXCLUDED.last_probe_at
-    ),
+    probes = EXCLUDED.probes,
+    up_probes = EXCLUDED.up_probes,
+    down_probes = EXCLUDED.down_probes,
+    slow_probes = EXCLUDED.slow_probes,
+    latency_ms_sum = EXCLUDED.latency_ms_sum,
+    latency_ms_count = EXCLUDED.latency_ms_count,
+    max_latency_ms = EXCLUDED.max_latency_ms,
+    first_probe_at = EXCLUDED.first_probe_at,
+    last_probe_at = EXCLUDED.last_probe_at,
     updated_at = now();
 
 -- Only newly inserted raw rows are processed, so the writer's overlapping
