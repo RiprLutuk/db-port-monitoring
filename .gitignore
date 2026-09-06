@@ -4,6 +4,8 @@
 *.log
 *.pem
 *.key
+/secrets/
+.envrc
 
 # Runtime storage and internal documentation are local-only.
 /data/
@@ -13,3 +15,15 @@
 # Target inventory can contain production hostnames and IP addresses.
 /prometheus/targets/*.yml
 !/prometheus/targets/db-targets.example.yml
+
+# Deployment-specific routing, datasource IDs, and generated rules belong only to
+# the private monitoring environment. Public users start from the examples.
+/alertmanager/alertmanager.yml
+!/alertmanager/alertmanager.example.yml
+/grafana/provisioning/alerting/
+/scripts/generate_mssql_grafana_rules.py
+
+# These exports and captures embed the private target inventory or host details.
+/sql/opmanager_daily_kpi_backfill_extract.sql
+/sql/opmanager_downtime_events_extract.sql
+/grafana/grafana_server_probe_history_v3.html

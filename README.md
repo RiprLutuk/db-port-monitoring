@@ -7,8 +7,9 @@ Project ini memonitor availability port database dengan TCP probe:
 - Writer menyimpan hasil ke PostgreSQL; Grafana membaca status dan KPI dari sana.
 - Tidak ada credential database target yang disimpan atau dipakai.
 
-Panduan sistem dan jawaban singkat untuk meeting tersedia di
-`docs/DB-PORT-MONITORING-FAQ.md`.
+Repository public ini hanya menyimpan kode dan template yang dapat dibagikan.
+Target inventory, konfigurasi deployment, hasil export, dan runbook internal
+disimpan di luar Git.
 
 ## Service
 
@@ -52,7 +53,23 @@ Command lain:
 ./promeblackbox.sh probe db-postgres.example.com:5432
 ./promeblackbox.sh query
 ./promeblackbox.sh writer-query
+./promeblackbox.sh deploy-grafana-alerts --dry-run
 ```
+
+Untuk deploy provisioning alert Grafana dari folder staging repository ini, isi
+`GRAFANA_PROJECT_DIR` pada `.env` lokal lalu jalankan:
+
+```bash
+./promeblackbox.sh deploy-grafana-alerts --dry-run
+./promeblackbox.sh deploy-grafana-alerts
+```
+
+Command tersebut generate ulang bulk rule, memvalidasi YAML, hanya menyalin file
+yang berubah ke project Grafana, kemudian restart Grafana sekali. Restart membuat
+timer `for` pada alert Grafana mulai menghitung ulang, tetapi tidak mengubah
+dashboard, datasource, maupun data monitoring. Generator dan rule inventory yang
+dipakai command ini bersifat deployment-specific dan tidak disertakan pada repository
+public.
 
 `blackbox-pg-writer` mengambil raw sample Prometheus dalam range waktu yang overlap, lalu menyimpannya ke PostgreSQL existing memakai env dari `.env` di project ini. Overlap membuat sample yang terlambat, termasuk probe timeout, tetap terambil; unique key `(checked_at, target_name)` mencegah duplikasi. Jika writer sempat berhenti, proses backfill dilanjutkan per chunk sampai mengejar waktu sekarang.
 
@@ -100,7 +117,15 @@ satu kali menjadi satu observasi per target per bucket 5 menit:
 Migration menolak berjalan bila writer masih aktif. Jika satu bucket memiliki probe
 UP dan DOWN, bucket disimpan sebagai DOWN agar kegagalan lama tidak hilang.
 
-File `.env` berisi credential dan harus memakai permission `600`.
+Mulai dari template lalu isi nilai environment lokal:
+
+```bash
+cp .env.example .env
+chmod 600 .env
+```
+
+File `.env` berisi credential dan harus memakai permission `600`; file ini
+diabaikan Git.
 Koneksi PostgreSQL memakai `PGCONNECT_TIMEOUT=10` agar kegagalan jaringan cepat masuk ke health metric dan alert writer.
 
 ## Target Monitoring
@@ -130,8 +155,8 @@ Label standar per target:
 
 Target dengan `monitoring_excluded: "true"` tetap di-scrape dan tetap masuk raw serta
 daily KPI PostgreSQL. Flag ini hanya mengecualikan target dari perhitungan dan tampilan
-dashboard KPI utama serta alert per-target. Exclusion aktif saat ini: `bmgcp-011-qa`,
-`bmjkt-000197`, dan `db-interval-qas`.
+dashboard KPI utama serta alert per-target. Daftar target dan exclusion aktual
+bersifat deployment-specific dan tidak disimpan di repository public.
 
 Untuk tambah target, edit `prometheus/targets/db-targets.yml`. Folder target di-bind
 mount dan Prometheus file discovery refresh setiap 60 detik, sehingga perubahan
@@ -186,9 +211,9 @@ pulih, durasi, dan jumlah failed sample. Event dan summary harian disimpan selam
 retention report. Event Prometheus lama direkonstruksi dari raw yang masih tersedia
 saat migration. Backfill OpManager memakai timestamp exact dari `DownTime*`,
 `ParentDown*`, dan `DependentUnavailable*`, sedangkan daily counter-nya masuk langsung
-ke daily KPI. Detail audit dan query ada di
-`docs/OPMANAGER-HISTORICAL-BACKFILL.md`. Refresh dashboard mengikuti cadence ingest
-5 menit. Dashboard historical tetap menampilkan target `monitoring_excluded=true`;
+ke daily KPI. Detail audit dan query internal tidak dipublikasikan. Refresh dashboard
+mengikuti cadence ingest 5 menit. Dashboard historical tetap menampilkan target
+`monitoring_excluded=true`;
 exclusion hanya berlaku pada dashboard KPI utama.
 Gap event pada daily KPI existing yang raw probe-nya sudah terhapus diisi satu kali
 oleh `sql/009_backfill_estimated_downtime_events.sql`. Event tersebut selalu diberi
@@ -256,18 +281,37 @@ Rule:
 - `BlackboxPGDailyKPIPartial`: KPI hari kemarin tidak berisi 288 probe
 - `AlertmanagerDown`: Prometheus tidak dapat mengakses Alertmanager
 - `AlertmanagerTelegramDeliveryFailed`: pengiriman Telegram gagal
+- `AlertmanagerEmailDeliveryFailed`: pengiriman email gagal
 
-Alertmanager aktif sebagai service terpisah dan mengirim FIRING/RESOLVED ke Telegram.
+Alertmanager aktif sebagai service terpisah dan dapat meneruskan alert ke Telegram
+dan email. Alert Grafana dengan label `notification_scope` dapat dirutekan terpisah
+dari alert Prometheus existing. Endpoint SMTP, recipient, routing production, dan
+datasource ID bersifat deployment-specific sehingga tidak disimpan di Git public.
+
+Rule Grafana-managed MSSQL berada di folder `DB Monitoring - Data`: availability
+setelah 5 menit, storage warning saat penggunaan `>=90%` dan sisa `<=30 GB` selama
+30 menit, serta storage critical saat penggunaan `>=95%` dan sisa `<=20 GB` selama
+15 menit. Threshold warning dan critical saling eksklusif agar satu drive tidak
+mengirim dua alert. Warning diulang setiap 12 jam dan storage critical setiap 2
+jam; availability critical diulang setiap 15 menit selama database masih down.
+Error pada query kapasitas tidak menghasilkan `DatasourceError`/nilai disk palsu;
+unavailability ditentukan oleh rule availability yang terpisah. Grafana meneruskan
+state ke Alertmanager setiap menit (`group_interval` dan `repeat_interval` sama-sama
+1 menit) agar alert tidak expire palsu; cadence ke user tetap diterapkan oleh
+Alertmanager. Inventory datasource dan generated rule production bersifat private.
 `DBPortDown` mulai firing setelah 10 menit gagal dan diulang tiap 15 menit selama
 masih DOWN. Critical lain diulang tiap 1 jam, sedangkan alert non-critical tiap 4
 jam. Credential hanya disimpan di `.env` lokal dan dipasang ke container melalui
 `/run/secrets`; nilainya tidak disimpan dalam file konfigurasi atau Git.
 
-Konfigurasi receiver tersedia di:
+Gunakan template receiver berikut untuk deployment baru:
 
 ```text
-alertmanager/alertmanager.yml
+alertmanager/alertmanager.example.yml
 ```
+
+Salin ke `alertmanager/alertmanager.yml`, isi endpoint dan recipient milik
+environment tersebut, lalu pastikan file hasil salinan tetap tidak di-track Git.
 
 ## Retention
 
@@ -386,8 +430,8 @@ yang benar-benar baru di dalam transaksi yang sama.
 Jika Prometheus masih mempunyai sample, writer dapat mengejar gangguan sampai batas
 retention Prometheus. Jika host monitoring berhenti melakukan scrape, sample pada
 periode itu memang tidak pernah tercipta dan tidak boleh direkonstruksi sebagai UP
-atau DOWN. Runbook diagnosis dan recovery ada di
-`docs/BLACKBOX-PIPELINE-RUNBOOK.md`.
+atau DOWN. Runbook diagnosis dan recovery production disimpan di luar repository
+public.
 
 Untuk menerapkan cadence 5 menit tidak perlu rebuild image. Validasi konfigurasi,
 reload Prometheus, lalu recreate writer agar environment baru terbaca:

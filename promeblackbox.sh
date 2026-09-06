@@ -31,6 +31,8 @@ Commands:
   validate                  Validate shell scripts and Prometheus config/rules
   verify                    Verify live Prometheus-to-PostgreSQL completeness
   reload                    Reload Prometheus config
+  deploy-grafana-alerts [--dry-run]
+                            Generate, validate, and deploy Grafana alert provisioning
   targets                   Show active Prometheus targets
   probe [host:port]         Run one Blackbox TCP probe
   query                     Query probe_success from Prometheus
@@ -51,7 +53,79 @@ Examples:
   ./promeblackbox.sh validate
   ./promeblackbox.sh start
   ./promeblackbox.sh probe db-postgres.example.com:5432
+  ./promeblackbox.sh deploy-grafana-alerts --dry-run
 EOF
+}
+
+deploy_grafana_alerts() {
+  local dry_run=false
+  local deploy_env_file source_dir target_dir compose_file
+  local -a alert_files=() changed_files=()
+
+  if [[ "${1:-}" == "--dry-run" ]]; then
+    dry_run=true
+    shift
+  fi
+  if [[ $# -gt 0 ]]; then
+    echo "Unknown deploy-grafana-alerts option: $1" >&2
+    return 2
+  fi
+
+  deploy_env_file="${GRAFANA_DEPLOY_ENV_FILE:-$WRITER_ENV_FILE}"
+  if [[ "$deploy_env_file" != /* ]]; then
+    deploy_env_file="$BASE_DIR/$deploy_env_file"
+  fi
+  if [[ -f "$deploy_env_file" ]]; then
+    # Parse only KEY=VALUE lines; never execute a local environment file as shell.
+    # shellcheck source=scripts/common.sh
+    source "$BASE_DIR/scripts/common.sh"
+    load_env_file_raw "$deploy_env_file"
+  fi
+
+  : "${GRAFANA_PROJECT_DIR:?Set GRAFANA_PROJECT_DIR in .env or the environment.}"
+  source_dir="${GRAFANA_ALERTING_SOURCE_DIR:-$BASE_DIR/grafana/provisioning/alerting}"
+  target_dir="$GRAFANA_PROJECT_DIR/provisioning/alerting"
+  compose_file="${GRAFANA_COMPOSE_FILE:-$GRAFANA_PROJECT_DIR/docker-compose.yml}"
+  alert_files=(mssql-all-paused.yml mssql-bmgcp-011-qa-pilot.yml)
+
+  [[ -d "$source_dir" ]] || { echo "Missing alert source directory: $source_dir" >&2; return 1; }
+  [[ -d "$target_dir" ]] || { echo "Missing Grafana alert directory: $target_dir" >&2; return 1; }
+  [[ -f "$compose_file" ]] || { echo "Missing Grafana compose file: $compose_file" >&2; return 1; }
+
+  if [[ ! -f "$BASE_DIR/scripts/generate_mssql_grafana_rules.py" ]]; then
+    echo "Missing private MSSQL rule generator: scripts/generate_mssql_grafana_rules.py" >&2
+    echo "Provide a deployment-specific generator and alert source directory first." >&2
+    return 1
+  fi
+  python3 "$BASE_DIR/scripts/generate_mssql_grafana_rules.py"
+  python3 -c 'import sys, yaml; [yaml.safe_load(open(path, encoding="utf-8")) for path in sys.argv[1:]]' \
+    "$source_dir/${alert_files[0]}" "$source_dir/${alert_files[1]}"
+
+  for alert_file in "${alert_files[@]}"; do
+    if cmp -s "$source_dir/$alert_file" "$target_dir/$alert_file"; then
+      echo "Unchanged: $alert_file"
+    else
+      changed_files+=("$alert_file")
+    fi
+  done
+
+  if [[ ${#changed_files[@]} -eq 0 ]]; then
+    echo "Grafana alert provisioning is already up to date; no restart needed."
+    return 0
+  fi
+
+  printf 'Changed provisioning files:\n'
+  printf ' - %s\n' "${changed_files[@]}"
+  if [[ "$dry_run" == true ]]; then
+    echo "Dry run only; Grafana was not changed."
+    return 0
+  fi
+
+  for alert_file in "${changed_files[@]}"; do
+    sudo install -m 0644 "$source_dir/$alert_file" "$target_dir/$alert_file"
+  done
+  sudo docker compose -f "$compose_file" restart grafana
+  echo "Grafana alert provisioning deployed. Grafana alert timers start fresh after the restart."
 }
 
 cmd="${1:-help}"
@@ -117,6 +191,10 @@ case "$cmd" in
     curl -sf -X POST "${PROMETHEUS_URL}/-/reload"
     curl -sf -X POST "${ALERTMANAGER_URL}/-/reload"
     echo "Prometheus and Alertmanager reload requested."
+    ;;
+
+  deploy-grafana-alerts)
+    deploy_grafana_alerts "$@"
     ;;
 
   targets)

@@ -198,3 +198,14 @@ groups:
         annotations:
           summary: "Telegram alert delivery failed"
           description: "Alertmanager mencatat kegagalan pengiriman Telegram dalam 15 menit terakhir. Periksa token, chat ID, koneksi, dan log Alertmanager."
+
+      - alert: AlertmanagerEmailDeliveryFailed
+        expr: increase(alertmanager_notifications_failed_total{integration="email"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          category: alerting
+          team: dba
+        annotations:
+          summary: "Email alert delivery failed"
+          description: "Alertmanager mencatat kegagalan pengiriman email dalam 15 menit terakhir. Periksa SMTP relay, alamat penerima, konektivitas, dan log Alertmanager."
