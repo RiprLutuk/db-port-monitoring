@@ -98,8 +98,12 @@ deploy_grafana_alerts() {
     return 1
   fi
   python3 "$BASE_DIR/scripts/generate_mssql_grafana_rules.py"
+  if [[ -f "$BASE_DIR/scripts/generate_postgres_mysql_grafana_rules.py" ]]; then
+    python3 "$BASE_DIR/scripts/generate_postgres_mysql_grafana_rules.py"
+    alert_files+=(postgres-mysql-availability.yml)
+  fi
   python3 -c 'import sys, yaml; [yaml.safe_load(open(path, encoding="utf-8")) for path in sys.argv[1:]]' \
-    "$source_dir/${alert_files[0]}" "$source_dir/${alert_files[1]}"
+    "${alert_files[@]/#/$source_dir/}"
 
   for alert_file in "${alert_files[@]}"; do
     if cmp -s "$source_dir/$alert_file" "$target_dir/$alert_file"; then

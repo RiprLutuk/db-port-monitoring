@@ -22,6 +22,7 @@
 !/alertmanager/alertmanager.example.yml
 /grafana/provisioning/alerting/
 /scripts/generate_mssql_grafana_rules.py
+/scripts/generate_postgres_mysql_grafana_rules.py
 
 # These exports and captures embed the private target inventory or host details.
 /sql/opmanager_daily_kpi_backfill_extract.sql
