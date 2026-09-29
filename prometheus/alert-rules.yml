@@ -10,7 +10,7 @@ groups:
           team: dba
         annotations:
           summary: "DB port down: {{ $labels.db_name }}"
-          description: "Target {{ $labels.instance }} tidak reachable via TCP selama lebih dari 10 menit. DB Type={{ $labels.db_type }}, Env={{ $labels.env }}."
+          description: "Target {{ $labels.instance }} has been unreachable over TCP for more than 10 minutes. DB Type={{ $labels.db_type }}, Env={{ $labels.env }}."
 
       - alert: DBPortProbeSlow
         expr: probe_duration_seconds{job="db-port-availability", monitoring_excluded!="true"} > 3 and probe_success{job="db-port-availability", monitoring_excluded!="true"} == 1
@@ -21,7 +21,7 @@ groups:
           team: dba
         annotations:
           summary: "DB port probe slow: {{ $labels.db_name }}"
-          description: "Target {{ $labels.instance }} TCP probe latency lebih dari 3 detik selama 10 menit. DB Type={{ $labels.db_type }}, Env={{ $labels.env }}."
+          description: "Target {{ $labels.instance }} TCP probe latency has exceeded 3 seconds for 10 minutes. DB Type={{ $labels.db_type }}, Env={{ $labels.env }}."
 
       - alert: DBPortProbeScrapeFailed
         expr: up{job="db-port-availability", monitoring_excluded!="true"} == 0
@@ -32,7 +32,7 @@ groups:
           team: dba
         annotations:
           summary: "DB port probe scrape failed: {{ $labels.db_name }}"
-          description: "Prometheus gagal mengambil hasil Blackbox untuk {{ $labels.instance }} selama lebih dari 10 menit."
+          description: "Prometheus has failed to collect Blackbox results for {{ $labels.instance }} for more than 10 minutes."
 
       - alert: DBPortMetricsMissing
         expr: absent_over_time(probe_success{job="db-port-availability", monitoring_excluded!="true"}[10m])
@@ -43,7 +43,7 @@ groups:
           team: dba
         annotations:
           summary: "All DB port probe metrics are missing"
-          description: "Seluruh metric probe_success tidak tersedia selama lebih dari 10 menit."
+          description: "All probe_success metrics have been unavailable for more than 10 minutes."
 
       - alert: BlackboxPGWriterDown
         expr: up{job="blackbox-pg-writer"} == 0
@@ -54,7 +54,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL writer is down"
-          description: "Prometheus tidak dapat mengambil health metric blackbox-pg-writer selama lebih dari 1 menit."
+          description: "Prometheus has been unable to collect the blackbox-pg-writer health metric for more than 1 minute."
 
       - alert: BlackboxPGWriterCycleFailed
         expr: blackbox_pg_writer_cycle_success == 0
@@ -65,7 +65,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL ingest is failing"
-          description: "Siklus ingest PostgreSQL terus gagal selama lebih dari 1 menit."
+          description: "The PostgreSQL ingestion cycle has continuously failed for more than 1 minute."
 
       - alert: BlackboxPGWriterIngestStale
         expr: (time() - blackbox_pg_writer_last_success_timestamp_seconds > 600) and (blackbox_pg_writer_last_success_timestamp_seconds > 0)
@@ -76,7 +76,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL ingest is stale"
-          description: "Writer tidak menyelesaikan ingest sukses selama lebih dari 10 menit."
+          description: "The writer has not completed a successful ingestion for more than 10 minutes."
 
       - alert: BlackboxPGWriterBackfillBehind
         expr: blackbox_pg_writer_backfill_remaining_seconds > 600
@@ -87,7 +87,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL writer has a backfill backlog"
-          description: "Backlog ingest PostgreSQL masih lebih dari 10 menit selama sedikitnya 5 menit."
+          description: "The PostgreSQL ingestion backlog has remained above 10 minutes for at least 5 minutes."
 
       - alert: BlackboxPGWriterProbeDataStale
         expr: blackbox_pg_writer_latest_probe_timestamp_seconds == 0 or time() - blackbox_pg_writer_latest_probe_timestamp_seconds > 900
@@ -98,7 +98,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL probe data is stale"
-          description: "Sample probe terbaru di PostgreSQL lebih lama dari 15 menit atau belum pernah tersimpan."
+          description: "The latest PostgreSQL probe sample is older than 15 minutes or has never been stored."
 
       - alert: BlackboxPGWriterTargetsMissing
         expr: blackbox_pg_writer_missing_recent_targets > 0
@@ -109,7 +109,7 @@ groups:
           team: dba
         annotations:
           summary: "Active DB targets are missing recent PostgreSQL samples"
-          description: "{{ $value }} target aktif tidak memiliki sample PostgreSQL dalam 10 menit terakhir."
+          description: "{{ $value }} active targets have no PostgreSQL samples within the last 10 minutes."
 
       - alert: BlackboxPGWriterSourceGap
         expr: blackbox_pg_writer_empty_windows_last_cycle > 0
@@ -120,7 +120,7 @@ groups:
           team: dba
         annotations:
           summary: "Prometheus source window had no DB probe samples"
-          description: "Writer melewati source window kosong tanpa membuat data palsu. Periksa Prometheus dan resource host."
+          description: "The writer skipped an empty source window without creating synthetic data. Check Prometheus and host resources."
 
       - alert: BlackboxPGWriterCycleSlow
         expr: blackbox_pg_writer_cycle_duration_seconds > blackbox_pg_writer_interval_seconds * 0.8
@@ -131,7 +131,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL writer cycle is nearing its interval"
-          description: "Durasi cycle writer sudah memakai lebih dari 80% interval selama 10 menit. Periksa PostgreSQL, jumlah target, dan backlog."
+          description: "The writer cycle duration has used more than 80% of its interval for 10 minutes. Check PostgreSQL, target count, and backlog."
 
       - alert: BlackboxPGRawRetentionBehind
         expr: blackbox_pg_writer_raw_retention_overdue_seconds > 3600
@@ -142,7 +142,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL raw retention is behind"
-          description: "Raw probe tertua melewati batas retention lebih dari satu jam. Cleanup dibatasi per batch; periksa writer dan autovacuum jika nilainya terus naik."
+          description: "The oldest raw probe exceeds the retention limit by more than one hour. Cleanup is batch-limited; check the writer and autovacuum if the value keeps increasing."
 
       - alert: BlackboxPGRawTableLarge
         expr: blackbox_pg_writer_raw_table_bytes > 2147483648
@@ -153,7 +153,7 @@ groups:
           team: dba
         annotations:
           summary: "Blackbox PostgreSQL raw table exceeds 2 GiB"
-          description: "Ukuran raw probe beserta index melebihi 2 GiB. Verifikasi jumlah target, retention 30 hari, tablespace, dan kapasitas disk."
+          description: "The raw probe table and indexes exceed 2 GiB. Verify target count, 30-day retention, tablespace, and disk capacity."
 
       - alert: BlackboxPGDailyKPIMissing
         expr: blackbox_pg_writer_yesterday_missing_kpi_targets > 0
@@ -164,7 +164,7 @@ groups:
           team: dba
         annotations:
           summary: "Daily DB-port KPI is missing targets"
-          description: "{{ $value }} target aktif non-excluded belum memiliki daily KPI untuk hari kemarin. Periksa writer, source gap, dan proses agregasi."
+          description: "{{ $value }} active non-excluded targets have no daily KPI for yesterday. Check the writer, source gaps, and aggregation process."
 
       - alert: BlackboxPGDailyKPIPartial
         expr: blackbox_pg_writer_yesterday_partial_kpi_targets > 0
@@ -175,7 +175,7 @@ groups:
           team: dba
         annotations:
           summary: "Daily DB-port KPI has incomplete targets"
-          description: "{{ $value }} target aktif non-excluded tidak memiliki 288 probe lima-menit pada daily KPI hari kemarin."
+          description: "{{ $value }} active non-excluded targets do not have all 288 five-minute probes in yesterday's daily KPI."
 
       - alert: AlertmanagerDown
         expr: up{job="alertmanager"} == 0
@@ -186,7 +186,7 @@ groups:
           team: dba
         annotations:
           summary: "Alertmanager is unavailable"
-          description: "Prometheus tidak dapat mengakses Alertmanager selama lebih dari 1 menit; notifikasi Telegram mungkin tidak terkirim."
+          description: "Prometheus has been unable to reach Alertmanager for more than 1 minute; Telegram notifications may not be delivered."
 
       - alert: AlertmanagerTelegramDeliveryFailed
         expr: increase(alertmanager_notifications_failed_total{integration="telegram"}[15m]) > 0
@@ -197,7 +197,7 @@ groups:
           team: dba
         annotations:
           summary: "Telegram alert delivery failed"
-          description: "Alertmanager mencatat kegagalan pengiriman Telegram dalam 15 menit terakhir. Periksa token, chat ID, koneksi, dan log Alertmanager."
+          description: "Alertmanager recorded a Telegram delivery failure within the last 15 minutes. Check the token, chat ID, connectivity, and Alertmanager logs."
 
       - alert: AlertmanagerEmailDeliveryFailed
         expr: increase(alertmanager_notifications_failed_total{integration="email"}[15m]) > 0
@@ -208,4 +208,4 @@ groups:
           team: dba
         annotations:
           summary: "Email alert delivery failed"
-          description: "Alertmanager mencatat kegagalan pengiriman email dalam 15 menit terakhir. Periksa SMTP relay, alamat penerima, konektivitas, dan log Alertmanager."
+          description: "Alertmanager recorded an email delivery failure within the last 15 minutes. Check the SMTP relay, recipient addresses, connectivity, and Alertmanager logs."
