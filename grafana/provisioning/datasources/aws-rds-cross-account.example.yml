@@ -1,0 +1,12 @@
+apiVersion: 1
+
+datasources:
+  - name: Amazon RDS Example
+    uid: aws-rds-example
+    type: cloudwatch
+    access: proxy
+    editable: true
+    jsonData:
+      authType: default
+      assumeRoleArn: arn:aws:iam::123456789012:role/GrafanaRDSMonitoring
+      defaultRegion: ap-southeast-1

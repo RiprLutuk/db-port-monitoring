@@ -1,0 +1,9 @@
+[Unit]
+Description=Discover Grafana datasources and synchronize production alert rules
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/dataplatform/data-tools/promeblackbox
+ExecStart=/dataplatform/data-tools/promeblackbox/promeblackbox.sh auto-sync-grafana-alerts

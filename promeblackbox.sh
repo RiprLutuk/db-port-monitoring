@@ -33,6 +33,7 @@ Commands:
   reload                    Reload Prometheus config
   deploy-grafana-alerts [--dry-run]
                             Generate, validate, and deploy Grafana alert provisioning
+  auto-sync-grafana-alerts Discover production datasources/RDS and deploy changed rules
   targets                   Show active Prometheus targets
   probe [host:port]         Run one Blackbox TCP probe
   query                     Query probe_success from Prometheus
@@ -101,6 +102,14 @@ deploy_grafana_alerts() {
   if [[ -f "$BASE_DIR/scripts/generate_postgres_mysql_grafana_rules.py" ]]; then
     python3 "$BASE_DIR/scripts/generate_postgres_mysql_grafana_rules.py"
     alert_files+=(postgres-mysql-availability.yml)
+  fi
+  if [[ -f "$BASE_DIR/scripts/generate_db_blocking_grafana_rules.py" ]]; then
+    python3 "$BASE_DIR/scripts/generate_db_blocking_grafana_rules.py"
+    alert_files+=(db-blocking.yml)
+  fi
+  if [[ -f "$BASE_DIR/scripts/generate_aws_rds_grafana_rules.py" ]]; then
+    python3 "$BASE_DIR/scripts/generate_aws_rds_grafana_rules.py"
+    alert_files+=(aws-rds.yml)
   fi
   python3 -c 'import sys, yaml; [yaml.safe_load(open(path, encoding="utf-8")) for path in sys.argv[1:]]' \
     "${alert_files[@]/#/$source_dir/}"
@@ -199,6 +208,12 @@ case "$cmd" in
 
   deploy-grafana-alerts)
     deploy_grafana_alerts "$@"
+    ;;
+
+  auto-sync-grafana-alerts)
+    [[ $# -eq 0 ]] || { echo "auto-sync-grafana-alerts takes no options" >&2; exit 2; }
+    python3 "$BASE_DIR/scripts/discover_grafana_alert_inventory.py"
+    deploy_grafana_alerts
     ;;
 
   targets)

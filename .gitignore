@@ -22,9 +22,14 @@ __pycache__/
 /alertmanager/alertmanager.yml
 !/alertmanager/alertmanager.example.yml
 /grafana/provisioning/alerting/
+/grafana/provisioning/datasources/aws-rds-cross-account.yml
+!/grafana/provisioning/datasources/aws-rds-cross-account.example.yml
 /scripts/generate_mssql_grafana_rules.py
 /scripts/generate_postgres_mysql_grafana_rules.py
 /scripts/generate_db_blocking_grafana_rules.py
+/scripts/alerting-inventory.json
+/scripts/alerting-autodiscovery.local.json
+!/scripts/alerting-autodiscovery.example.json
 
 # These exports and captures embed the private target inventory or host details.
 /sql/opmanager_daily_kpi_backfill_extract.sql

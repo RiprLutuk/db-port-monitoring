@@ -445,3 +445,25 @@ reload Prometheus, lalu recreate writer agar environment baru terbaca:
 Storage PostgreSQL yang aktif mempertahankan raw probe 30 hari serta daily KPI dan
 downtime events sekitar enam tahun. Tabel legacy lain sudah di-drop melalui migration
 `sql/005_kpi_only_cleanup.sql`.
+
+## Alert Autodiscovery
+
+Datasource SQL production dan instance Amazon RDS dapat disinkronkan otomatis:
+
+```bash
+cp scripts/alerting-autodiscovery.example.json scripts/alerting-autodiscovery.local.json
+./promeblackbox.sh auto-sync-grafana-alerts
+```
+
+File lokal berisi pemetaan datasource CloudWatch, AWS account, dan AssumeRole serta
+tidak disimpan ke Git. Discovery mengabaikan nama dengan penanda `dev`, `qa`, `qas`,
+`uat`, `test`, atau `sandbox`. SQL datasource dibaca dari metadata Grafana; RDS
+instance dan allocated storage dibaca melalui AWS `DescribeDBInstances`.
+
+Unit pada `systemd/` menjalankan sinkronisasi setiap 15 menit. Grafana hanya direstart
+bila hasil provisioning berubah. Periksa status dengan:
+
+```bash
+systemctl list-timers promeblackbox-alert-autodiscovery.timer
+journalctl -u promeblackbox-alert-autodiscovery.service -n 100 --no-pager
+```
