@@ -169,8 +169,8 @@ def labels(company: str, instance: str, engine: str, severity: str, alert_type: 
 
 
 def storage_rule(company: str, ds_uid: str, instance: str, engine: str, allocated_gib: int, critical: bool) -> str:
-    warning_gib = min(allocated_gib * 0.10, 30)
-    critical_gib = min(allocated_gib * 0.05, 20)
+    warning_gib = min(allocated_gib * 0.15, 100)
+    critical_gib = min(allocated_gib * 0.10, 50)
     warning_bytes = int(warning_gib * 1024**3)
     critical_bytes = int(critical_gib * 1024**3)
     kind = "critical" if critical else "warning"
@@ -179,7 +179,7 @@ def storage_rule(company: str, ds_uid: str, instance: str, engine: str, allocate
     if critical:
         condition = f'''{reduce("B", "A")}
 {threshold("C", "B", "lt", critical_bytes)}'''
-        detail = f"Free storage is below {critical_gib:g} GiB (5% and 20 GiB guardrail)."
+        detail = f"Free storage is below {critical_gib:g} GiB (10% and 50 GiB guardrail)."
     else:
         # Math makes warning and critical mutually exclusive.
         condition = f'''{reduce("B", "A")}
@@ -198,7 +198,7 @@ def storage_rule(company: str, ds_uid: str, instance: str, engine: str, allocate
               refId: C
               type: math
 {threshold("D", "C", "gt", 0)}'''
-        detail = f"Free storage is below {warning_gib:g} GiB (10% and 30 GiB guardrail)."
+        detail = f"Free storage is below {warning_gib:g} GiB (15% and 100 GiB guardrail)."
     condition_ref = "C" if critical else "D"
     return f'''      - uid: {short_id(company, instance)}_s_{"c" if critical else "w"}
         title: RDS storage {kind} - {instance}
