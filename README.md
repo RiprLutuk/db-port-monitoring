@@ -1,5 +1,8 @@
 # Prometheus + Blackbox Exporter DB Port Monitoring
 
+Panduan singkat menjalankan, memeriksa, mengubah target, dan menangani gangguan:
+[Panduan Operasional](OPERASIONAL.md).
+
 Project ini memonitor availability port database dengan TCP probe:
 
 - Blackbox Exporter melakukan connect ke `host:port`.
