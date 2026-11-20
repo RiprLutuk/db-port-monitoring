@@ -303,7 +303,8 @@ JOIN LATERAL (
     WHERE r.target_name = t.target_name
     ORDER BY r.checked_at DESC
     LIMIT 1
-) latest ON true;
+) latest ON true
+WHERE t.is_active = true;
 
 CREATE OR REPLACE VIEW :"schema_name".probe_availability_30d AS
 WITH availability AS (
