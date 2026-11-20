@@ -33,6 +33,7 @@ Commands:
   reload                    Reload Prometheus config
   deploy-grafana-alerts [--dry-run]
                             Generate, validate, and deploy Grafana alert provisioning
+  reconcile-alerts [--dry-run] Prune orphaned/deleted rules from Grafana database
   auto-sync-grafana-alerts Discover production datasources/RDS and deploy changed rules
   targets                   Show active Prometheus targets
   probe [host:port]         Run one Blackbox TCP probe
@@ -122,7 +123,16 @@ deploy_grafana_alerts() {
     fi
   done
 
-  if [[ ${#changed_files[@]} -eq 0 ]]; then
+  local pruned_status=0
+  if [[ -f "$BASE_DIR/scripts/reconcile_grafana_alerts.py" ]]; then
+    if [[ "$dry_run" == true ]]; then
+      python3 "$BASE_DIR/scripts/reconcile_grafana_alerts.py" --dry-run || true
+    else
+      python3 "$BASE_DIR/scripts/reconcile_grafana_alerts.py" || pruned_status=$?
+    fi
+  fi
+
+  if [[ ${#changed_files[@]} -eq 0 && $pruned_status -ne 10 ]]; then
     echo "Grafana alert provisioning is already up to date; no restart needed."
     return 0
   fi
@@ -204,6 +214,10 @@ case "$cmd" in
     curl -sf -X POST "${PROMETHEUS_URL}/-/reload"
     curl -sf -X POST "${ALERTMANAGER_URL}/-/reload"
     echo "Prometheus and Alertmanager reload requested."
+    ;;
+
+  reconcile-alerts)
+    python3 "$BASE_DIR/scripts/reconcile_grafana_alerts.py" "$@"
     ;;
 
   deploy-grafana-alerts)

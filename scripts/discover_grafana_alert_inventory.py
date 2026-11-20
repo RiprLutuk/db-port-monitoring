@@ -81,6 +81,7 @@ def rds_instances(datasources: list[dict[str, str]]) -> list[dict[str, object]]:
     by_name = {item["name"]: item for item in datasources}
     result = []
     settings = json.loads(LOCAL_CONFIG.read_text()) if LOCAL_CONFIG.exists() else {"rds_accounts": []}
+    exclude_patterns = [re.compile(p, re.I) for p in settings.get("exclude_instance_patterns", [])]
     for account_config in settings.get("rds_accounts", []):
         datasource_name = account_config["datasource_name"]
         company = account_config["company"]
@@ -95,6 +96,11 @@ def rds_instances(datasources: list[dict[str, str]]) -> list[dict[str, object]]:
         for instance in payload.get("DBInstances", []):
             name = instance["DBInstanceIdentifier"]
             if NON_PROD.search(name):
+                continue
+            if any(p.search(name) for p in exclude_patterns):
+                continue
+            status = instance.get("DBInstanceStatus", "").lower()
+            if status != "available":
                 continue
             engine_name = instance.get("Engine", "").lower()
             if engine_name.startswith("postgres"):
@@ -127,6 +133,7 @@ def main() -> int:
     with tempfile.NamedTemporaryFile("w", dir=OUTPUT.parent, delete=False) as handle:
         handle.write(rendered)
         temporary = Path(handle.name)
+    temporary.chmod(0o664)
     temporary.replace(OUTPUT)
     print(f"Inventory updated: {len(sql)} SQL datasources, {len(inventory['rds_instances'])} RDS instances")
     return 0
